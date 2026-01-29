@@ -2,6 +2,9 @@
 // API CLIENT
 // ===============================
 
+// Bind global config
+const CONFIG = window.CONFIG;
+
 const API = {
     // Mock data for development
     mockData: {
@@ -14,7 +17,9 @@ const API = {
         ],
     },
 
+    // ===============================
     // Helper to make HTTP requests
+    // ===============================
     async request(endpoint, options = {}) {
         const { method = 'GET', body, headers = {} } = options;
 
@@ -30,7 +35,7 @@ const API = {
         }
 
         try {
-            const url = `${CONFIG.API.BASE_URL}${endpoint}`;
+            const url = `${CONFIG.API_BASE_URL}${endpoint}`;
             const response = await fetch(url, {
                 method,
                 headers,
@@ -50,9 +55,10 @@ const API = {
         }
     },
 
+    // ===============================
     // Mock request handler
+    // ===============================
     async mockRequest(endpoint, options = {}) {
-        // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const { method = 'GET', body } = options;
@@ -79,19 +85,26 @@ const API = {
         if (endpoint === '/auth/signup') {
             const { username, email, password } = body;
 
-            // Check if user exists
-            const exists = this.mockData.users.find(u => u.username === username || u.email === email);
+            const exists = this.mockData.users.find(
+                u => u.username === username || u.email === email
+            );
             if (exists) {
                 return { success: false, error: 'User already exists' };
             }
 
-            const newUser = { id: this.mockData.users.length + 1, username, email, password };
+            const newUser = {
+                id: this.mockData.users.length + 1,
+                username,
+                email,
+                password,
+            };
+
             this.mockData.users.push(newUser);
 
             return {
                 success: true,
                 data: {
-                    user: { id: newUser.id, username: newUser.username, email: newUser.email },
+                    user: { id: newUser.id, username, email },
                     token: 'mock_token_' + Date.now(),
                 },
             };
@@ -126,7 +139,7 @@ const API = {
         }
 
         if (endpoint.startsWith('/rooms/') && endpoint.endsWith('/join')) {
-            const roomId = parseInt(endpoint.split('/')[2]);
+            const roomId = parseInt(endpoint.split('/')[2], 10);
             const room = this.mockData.rooms.find(r => r.id === roomId);
 
             if (room && room.players < room.maxPlayers) {
@@ -139,61 +152,67 @@ const API = {
         return { success: false, error: 'Endpoint not found' };
     },
 
-    // Main API methods
+    // ===============================
+    // Main API dispatcher
+    // ===============================
     async call(endpoint, options = {}) {
-        if (CONFIG.API.USE_MOCK) {
+        if (CONFIG.USE_MOCK) {
             return this.mockRequest(endpoint, options);
         }
         return this.request(endpoint, options);
     },
 
+    // ===============================
     // Auth endpoints
+    // ===============================
     auth: {
-        async login(username, password) {
+        login(username, password) {
             return API.call('/auth/login', {
                 method: 'POST',
                 body: { username, password },
             });
         },
 
-        async signup(username, email, password) {
+        signup(username, email, password) {
             return API.call('/auth/signup', {
                 method: 'POST',
                 body: { username, email, password },
             });
         },
 
-        async logout() {
+        logout() {
             return API.call('/auth/logout', { method: 'POST' });
         },
 
-        async me() {
+        me() {
             return API.call('/auth/me');
         },
     },
 
+    // ===============================
     // Room endpoints
+    // ===============================
     rooms: {
-        async list() {
+        list() {
             return API.call('/rooms');
         },
 
-        async create(name) {
+        create(name) {
             return API.call('/rooms', {
                 method: 'POST',
                 body: { name },
             });
         },
 
-        async join(roomId) {
+        join(roomId) {
             return API.call(`/rooms/${roomId}/join`, { method: 'POST' });
         },
 
-        async leave(roomId) {
+        leave(roomId) {
             return API.call(`/rooms/${roomId}/leave`, { method: 'DELETE' });
         },
 
-        async get(roomId) {
+        get(roomId) {
             return API.call(`/rooms/${roomId}`);
         },
     },
