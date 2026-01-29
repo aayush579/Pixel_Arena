@@ -126,16 +126,13 @@ server.listen(PORT, () => {
     console.log("🎮  PIXEL ARENA SERVER");
     console.log("🎮 ================================");
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
-
-    if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-        console.log(`🌐 Public URL: https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
-        console.log(`🔌 WebSocket: wss://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
-    }
-
-    console.log("🎮 ================================");
-    console.log("");
+    console.log(`🌐 HTTP: http://localhost:${PORT}`);
+    console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
+    console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log('🎮 ================================');
+    console.log('');
 });
+
 
 // ===============================
 // GRACEFUL SHUTDOWN
