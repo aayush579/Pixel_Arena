@@ -2,93 +2,149 @@
 // MAIN SERVER FILE
 // ===============================
 
-require('dotenv').config();
-const express = require('express');
-const http = require('http');
-const socketIO = require('socket.io');
-const cors = require('cors');
+require("dotenv").config();
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const cors = require("cors");
 
 // Import routes and handlers
-const authRoutes = require('./routes/auth');
-const roomRoutes = require('./routes/rooms');
-const { setupSocketHandlers } = require('./socket/handlers');
+const authRoutes = require("./routes/auth");
+const roomRoutes = require("./routes/rooms");
+const { setupSocketHandlers } = require("./socket/handlers");
 
-// Initialize Express app
+// ===============================
+// APP + SERVER INIT
+// ===============================
+
 const app = express();
 const server = http.createServer(app);
 
-// Initialize Socket.IO with CORS
-const io = socketIO(server, {
-    cors: {
-        origin: '*', // In production, specify your frontend URL
-        methods: ['GET', 'POST'],
-    },
-});
+// ===============================
+// CORS CONFIG (MUST BE FIRST)
+// ===============================
 
-// Middleware
-app.use(cors());
+const corsOptions = {
+    origin: "https://pixel-arena-six.vercel.app",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+// ===============================
+// BODY PARSERS
+// ===============================
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging
+// ===============================
+// REQUEST LOGGING
+// ===============================
+
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
     next();
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/rooms', roomRoutes);
+// ===============================
+// ROOT ROUTE (IMPORTANT)
+// ===============================
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get("/", (req, res) => {
+    res.status(200).send("🎮 Pixel Arena Backend is Live 🚀");
+});
+
+// ===============================
+// API ROUTES
+// ===============================
+
+app.use("/api/auth", authRoutes);
+app.use("/api/rooms", roomRoutes);
+
+// ===============================
+// HEALTH CHECK
+// ===============================
+
+app.get("/api/health", (req, res) => {
     res.json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
+        status: "ok",
         uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
     });
 });
 
-// 404 handler
+// ===============================
+// 404 HANDLER
+// ===============================
+
 app.use((req, res) => {
     res.status(404).json({
         success: false,
-        error: 'Endpoint not found',
+        error: "Endpoint not found",
     });
 });
 
-// Error handler
+// ===============================
+// ERROR HANDLER
+// ===============================
+
 app.use((err, req, res, next) => {
-    console.error('Error:', err);
+    console.error("Error:", err);
     res.status(500).json({
         success: false,
-        error: err.message || 'Internal server error',
+        error: err.message || "Internal server error",
     });
 });
 
-// Setup Socket.IO handlers
-setupSocketHandlers(io);
+// ===============================
+// SOCKET.IO SETUP
+// ===============================
 
-// Start server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log('');
-    console.log('🎮 ================================');
-    console.log('🎮  PIXEL ARENA SERVER');
-    console.log('🎮 ================================');
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌐 HTTP: http://localhost:${PORT}`);
-    console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
-    console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log('🎮 ================================');
-    console.log('');
+const io = new Server(server, {
+    cors: {
+        origin: "https://pixel-arena-six.vercel.app",
+        methods: ["GET", "POST"],
+        credentials: true,
+    },
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM signal received: closing HTTP server');
+setupSocketHandlers(io);
+
+// ===============================
+// START SERVER
+// ===============================
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+    console.log("");
+    console.log("🎮 ================================");
+    console.log("🎮  PIXEL ARENA SERVER");
+    console.log("🎮 ================================");
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+
+    if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+        console.log(`🌐 Public URL: https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+        console.log(`🔌 WebSocket: wss://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+    }
+
+    console.log("🎮 ================================");
+    console.log("");
+});
+
+// ===============================
+// GRACEFUL SHUTDOWN
+// ===============================
+
+process.on("SIGTERM", () => {
+    console.log("SIGTERM received: closing server");
     server.close(() => {
-        console.log('HTTP server closed');
+        console.log("HTTP server closed");
     });
 });
 
