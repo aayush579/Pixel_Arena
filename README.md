@@ -1,3 +1,4 @@
+
 # 🎮 Pixel Arena - Multiplayer Fighting Game
 
 Complete real-time multiplayer 1v1 fighting game with frontend and backend.
@@ -258,3 +259,4 @@ Check documentation files:
 ---
 
 **Ready to deploy? Follow the deployment guide!** 🚀
+
