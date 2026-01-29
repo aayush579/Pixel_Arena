@@ -6,7 +6,6 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const cors = require("cors");
 
 // Import routes and handlers
 const authRoutes = require("./routes/auth");
@@ -21,18 +20,39 @@ const app = express();
 const server = http.createServer(app);
 
 // ===============================
-// CORS CONFIG (MUST BE FIRST)
+// MANUAL CORS (FINAL FIX)
 // ===============================
 
-const corsOptions = {
-    origin: "https://pixel-arena-six.vercel.app",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-};
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
 
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+    // Allow Vercel (prod + previews) and localhost
+    if (
+        origin &&
+        (origin.endsWith(".vercel.app") ||
+            origin === "http://localhost:3000" ||
+            origin === "http://localhost:5173")
+    ) {
+        res.header("Access-Control-Allow-Origin", origin);
+    }
+
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    );
+    res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS"
+    );
+
+    // Handle preflight
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(200);
+    }
+
+    next();
+});
 
 // ===============================
 // BODY PARSERS
@@ -51,7 +71,7 @@ app.use((req, res, next) => {
 });
 
 // ===============================
-// ROOT ROUTE (IMPORTANT)
+// ROOT ROUTE
 // ===============================
 
 app.get("/", (req, res) => {
@@ -101,14 +121,13 @@ app.use((err, req, res, next) => {
 });
 
 // ===============================
-// SOCKET.IO SETUP
+// SOCKET.IO SETUP (SIMPLE & SAFE)
 // ===============================
 
 const io = new Server(server, {
     cors: {
-        origin: "https://pixel-arena-six.vercel.app",
+        origin: "*",
         methods: ["GET", "POST"],
-        credentials: true,
     },
 });
 
@@ -126,13 +145,10 @@ server.listen(PORT, () => {
     console.log("🎮  PIXEL ARENA SERVER");
     console.log("🎮 ================================");
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌐 HTTP: http://localhost:${PORT}`);
-    console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
-    console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log('🎮 ================================');
-    console.log('');
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log("🎮 ================================");
+    console.log("");
 });
-
 
 // ===============================
 // GRACEFUL SHUTDOWN
