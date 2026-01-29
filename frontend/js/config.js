@@ -1,11 +1,13 @@
 // ===============================
 // PIXEL ARENA - CONFIGURATION
 // ===============================
-
 window.CONFIG = {
-  // Backend URLs (CHANGE TO YOUR REAL RAILWAY SERVICE URL)
-    API_BASE_URL: "https://pixel-arena-backend.up.railway.app/api",
-  SOCKET_URL: "https://pixel-arena-backend.up.railway.app",
+  API_BASE_URL: "https://pixelarena-production.up.railway.app/api",
+  SOCKET_URL: "https://pixelarena-production.up.railway.app",
+  USE_MOCK: false
+};
+
+var CONFIG = window.CONFIG;
 
 
   // Game Configuration
