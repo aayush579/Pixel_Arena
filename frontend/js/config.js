@@ -4,10 +4,9 @@
 
 window.CONFIG = {
   // Backend URLs (CHANGE TO YOUR REAL RAILWAY SERVICE URL)
-  API_BASE_URL: "https://railway.com/project/b4147c88-6574-4ffe-96fe-23f028ba1e8a?environmentId=890359c7-8df0-4fa3-9e3a-ca23146ae7b7/api",
-  SOCKET_URL: "https://railway.com/project/b4147c88-6574-4ffe-96fe-23f028ba1e8a?environmentId=890359c7-8df0-4fa3-9e3a-ca23146ae7b7",
+    API_BASE_URL: "https://pixel-arena-backend.up.railway.app/api",
+  SOCKET_URL: "https://pixel-arena-backend.up.railway.app",
 
-  USE_MOCK: false,
 
   // Game Configuration
   GAME: {
