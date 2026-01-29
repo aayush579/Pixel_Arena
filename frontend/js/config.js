@@ -74,5 +74,4 @@ window.CONFIG = {
   }
 };
 
-// Make CONFIG globally accessible
-var CONFIG = window.CONFIG;
+
