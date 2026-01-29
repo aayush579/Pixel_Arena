@@ -5,7 +5,7 @@ window.CONFIG = {
   API_BASE_URL: "https://pixelarena-production.up.railway.app/api",
   SOCKET_URL: "https://pixelarena-production.up.railway.app",
   USE_MOCK: false
-};
+}
 
 var CONFIG = window.CONFIG;
 
