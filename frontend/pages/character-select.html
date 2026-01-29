@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Arena - Select Character</title>
+    <link rel="stylesheet" href="../css/global.css" />
+    <link rel="stylesheet" href="../css/character-select.css" />
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-content">
+                    <h2 class="header-logo">PIXEL ARENA</h2>
+                    <button class="btn btn-secondary btn-sm" id="backBtn">← Back to Lobby</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <section class="character-select-section fade-in">
+                    <h1 class="section-title">Choose Your Fighter</h1>
+                    <p class="section-subtitle">Select a character to enter the arena</p>
+
+                    <div class="characters-grid" id="charactersGrid">
+                        <!-- Characters will be dynamically loaded -->
+                    </div>
+
+                    <div class="selection-footer">
+                        <button class="btn btn-primary btn-lg" id="confirmBtn" disabled>
+                            Confirm Selection
+                        </button>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Character Preview Canvas (hidden) -->
+    <canvas id="previewCanvas" style="display: none;"></canvas>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/utils/storage.js"></script>
+    <script src="../js/character-select.js"></script>
+</body>
+
+</html>

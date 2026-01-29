@@ -1,0 +1,151 @@
+body {
+  background: #0e0e0e;
+  color: #ffffff;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  margin: 0;
+}
+
+h1 {
+  margin-top: 20px;
+}
+
+canvas {
+  /* OPTION 1: Solid Dark (Current) */
+  /* background: #1b1b1b; */
+
+  /* OPTION 2: Cyberpunk Gradient */
+  background: linear-gradient(135deg, #0a0a1a 0%, #1a0a1a 50%, #0a1a1a 100%);
+
+  /* OPTION 3: Neon Grid Pattern */
+  /* background: 
+    linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+    #0e0e0e;
+  background-size: 50px 50px; */
+
+  /* OPTION 4: Purple/Blue Gradient */
+  /* background: linear-gradient(180deg, #1a0033 0%, #000033 100%); */
+
+  /* OPTION 5: Red/Orange Arena */
+  /* background: linear-gradient(135deg, #2a0a0a 0%, #1a0505 100%); */
+
+  /* OPTION 6: Green Matrix Style */
+  /* background: linear-gradient(135deg, #0a1a0a 0%, #051a05 100%); */
+
+  /* OPTION 7: Animated Gradient (requires @keyframes below) */
+  /* background: linear-gradient(-45deg, #0a0a1a, #1a0a1a, #0a1a1a, #1a1a0a);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite; */
+
+  border: 3px solid #333;
+  border-radius: 12px;
+  display: block;
+  margin: 20px auto;
+}
+
+.controls {
+  color: #aaa;
+  margin-bottom: 20px;
+}
+
+.button-controls {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin: 20px auto;
+  flex-wrap: wrap;
+}
+
+.movement-buttons,
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.control-btn {
+  background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+  color: #ffffff;
+  border: 2px solid #444;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  user-select: none;
+}
+
+.control-btn:hover {
+  background: linear-gradient(135deg, #3a3a3a, #2a2a2a);
+  border-color: #666;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.control-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, #1a1a1a, #0a0a0a);
+}
+
+.control-btn.action {
+  background: linear-gradient(135deg, #ff4444, #cc0000);
+  border-color: #ff6666;
+}
+
+.control-btn.action:hover {
+  background: linear-gradient(135deg, #ff6666, #ff0000);
+  border-color: #ff8888;
+}
+
+.control-btn.action:active {
+  background: linear-gradient(135deg, #cc0000, #990000);
+}
+
+/* ===============================
+   ARENA BACKGROUND ANIMATIONS
+   =============================== */
+
+/* For OPTION 7: Animated Gradient */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* ===============================
+   BACKGROUND IMAGE OPTION
+   =============================== */
+
+/* OPTION 8: Use a background image */
+/* Uncomment and add your image path:
+canvas {
+  background-image: url('../assets/ui/arena-bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+*/
+
+/* OPTION 9: Parallax layers (multiple backgrounds) */
+/* 
+canvas {
+  background: 
+    linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+    url('../assets/ui/arena-layer2.png'),
+    url('../assets/ui/arena-layer1.png'),
+    #0a0a1a;
+  background-size: cover, 150% auto, 100% auto;
+  background-position: center;
+}
+*/

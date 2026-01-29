@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Arena - Home</title>
+    <link rel="stylesheet" href="../css/global.css" />
+    <link rel="stylesheet" href="../css/home.css" />
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-content">
+                    <h2 class="header-logo">PIXEL ARENA</h2>
+                    <div class="header-user">
+                        <span class="user-name" id="userName">Player</span>
+                        <button class="btn btn-secondary btn-sm" id="logoutBtn">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <!-- Hero Section -->
+                <section class="hero-section fade-in">
+                    <h1>Ready for Battle?</h1>
+                    <p class="hero-subtitle">Create a room or join an existing battle</p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary btn-lg" id="createRoomBtn">
+                            ⚔️ Create Room
+                        </button>
+                        <button class="btn btn-success btn-lg" id="quickPlayBtn">
+                            ⚡ Quick Play
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Rooms Section -->
+                <section class="rooms-section">
+                    <div class="section-header">
+                        <h3>Active Rooms</h3>
+                        <div class="search-box">
+                            <input type="text" id="searchInput" class="form-input" placeholder="Search rooms..." />
+                        </div>
+                    </div>
+
+                    <div id="roomsList" class="rooms-grid">
+                        <!-- Rooms will be dynamically loaded here -->
+                    </div>
+
+                    <div id="emptyState" class="empty-state hidden">
+                        <p>No active rooms found. Be the first to create one!</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Create Room Modal -->
+    <div id="createRoomModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create New Room</h3>
+            </div>
+            <form id="createRoomForm">
+                <div class="form-group">
+                    <label for="roomName" class="form-label">Room Name</label>
+                    <input type="text" id="roomName" class="form-input" placeholder="Enter room name" required />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelCreateBtn">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Create & Continue
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/utils/storage.js"></script>
+    <script src="../js/utils/api.js"></script>
+    <script src="../js/home.js"></script>
+</body>
+
+</html>

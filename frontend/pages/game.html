@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Arena - Game</title>
+  <link rel="stylesheet" href="../css/global.css" />
+  <link rel="stylesheet" href="../css/game.css" />
+</head>
+
+<body>
+
+  <h1>Pixel Arena</h1>
+
+  <canvas id="game" width="800" height="400"></canvas>
+
+  <p class="controls">
+    A / D = Move &nbsp; | &nbsp; K = Kick &nbsp; | &nbsp; H = Hit
+  </p>
+
+  <div class="button-controls">
+    <div class="movement-buttons">
+      <button id="btn-left" class="control-btn">← Left (A)</button>
+      <button id="btn-right" class="control-btn">Right (D) →</button>
+    </div>
+    <div class="action-buttons">
+      <button id="btn-kick" class="control-btn action">Kick (K)</button>
+      <button id="btn-hit" class="control-btn action">Hit (H)</button>
+    </div>
+  </div>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/utils/storage.js"></script>
+  <script src="../js/utils/websocket.js"></script>
+  <script src="../js/utils/sound.js"></script>
+  <script src="../js/game.js"></script>
+</body>
+
+</html>

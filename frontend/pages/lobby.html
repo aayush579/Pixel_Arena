@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Arena - Lobby</title>
+    <link rel="stylesheet" href="../css/global.css" />
+    <link rel="stylesheet" href="../css/lobby.css" />
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-content">
+                    <h2 class="header-logo">PIXEL ARENA</h2>
+                    <button class="btn btn-danger btn-sm" id="leaveBtn">Leave Room</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <section class="lobby-section fade-in">
+                    <div class="lobby-header">
+                        <h1 class="room-title" id="roomTitle">Waiting Room</h1>
+                        <div class="room-code-display">
+                            <span class="room-code-label">Room Code:</span>
+                            <span class="room-code" id="roomCode">------</span>
+                        </div>
+                    </div>
+
+                    <div class="players-container">
+                        <!-- Player 1 (Host) -->
+                        <div class="player-slot player-1">
+                            <div class="player-card">
+                                <div class="player-header">
+                                    <h3 class="player-label">Player 1 (Host)</h3>
+                                    <span class="player-status ready" id="player1Status">Ready</span>
+                                </div>
+                                <div class="player-character">
+                                    <div class="character-icon" id="player1Icon">🤖</div>
+                                    <div class="character-info">
+                                        <h4 class="character-name" id="player1Character">Cyborg</h4>
+                                        <p class="player-name" id="player1Name">Player 1</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- VS Divider -->
+                        <div class="vs-divider">
+                            <span class="vs-text">VS</span>
+                        </div>
+
+                        <!-- Player 2 -->
+                        <div class="player-slot player-2">
+                            <div class="player-card" id="player2Card">
+                                <div class="player-header">
+                                    <h3 class="player-label">Player 2</h3>
+                                    <span class="player-status waiting" id="player2Status">Waiting...</span>
+                                </div>
+                                <div class="player-character">
+                                    <div class="character-icon waiting-icon">❓</div>
+                                    <div class="character-info">
+                                        <h4 class="character-name">Waiting for opponent...</h4>
+                                        <p class="player-name"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lobby-actions">
+                        <button class="btn btn-secondary btn-lg" id="readyBtn">
+                            Ready
+                        </button>
+                        <button class="btn btn-success btn-lg" id="startBtn" disabled>
+                            Start Game
+                        </button>
+                    </div>
+
+                    <div class="lobby-info">
+                        <p id="statusMessage">Waiting for opponent to join...</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/utils/storage.js"></script>
+    <script src="../js/utils/websocket.js"></script>
+    <script src="../js/lobby.js"></script>
+</body>
+
+</html>
