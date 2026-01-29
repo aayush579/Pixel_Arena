@@ -9,7 +9,7 @@ const CONFIG = {
   USE_MOCK: false
 };
 
-export default CONFIG;
+
 ,
 
     // Game Configuration
