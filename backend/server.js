@@ -71,18 +71,27 @@ setupSocketHandlers(io);
 
 // Start server
 const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => {
     console.log('');
     console.log('🎮 ================================');
     console.log('🎮  PIXEL ARENA SERVER');
     console.log('🎮 ================================');
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🌐 HTTP: http://localhost:${PORT}`);
-    console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
-    console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+
+    if (process.env.RAILWAY_PUBLIC_DOMAIN) {
+        console.log(`🌍 Public URL: https://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+        console.log(`🔌 WebSocket: wss://${process.env.RAILWAY_PUBLIC_DOMAIN}`);
+    } else {
+        console.log(`🌐 HTTP: http://localhost:${PORT}`);
+        console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
+    }
+
     console.log('🎮 ================================');
     console.log('');
 });
+
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
