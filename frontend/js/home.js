@@ -25,23 +25,19 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 const user = UserStorage.getUser();
 userName.textContent = user.username;
 
-// Show toast notification
+// Toast
 function showToast(message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
     document.body.appendChild(toast);
-
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
+    setTimeout(() => toast.remove(), 3000);
 }
 
-// Show/hide loading
+// Loading
 function showLoading() {
     loadingOverlay.classList.remove('hidden');
 }
-
 function hideLoading() {
     loadingOverlay.classList.add('hidden');
 }
@@ -49,37 +45,43 @@ function hideLoading() {
 // Logout
 logoutBtn.addEventListener('click', () => {
     UserStorage.clearSession();
-    showToast('Logged out successfully', 'success');
+    showToast('Logged out successfully');
     setTimeout(() => {
         window.location.href = '../index.html';
     }, 500);
 });
 
-// Load rooms
+// ===============================
+// LOAD ROOMS (FIXED)
+// ===============================
 async function loadRooms() {
     showLoading();
 
     try {
         const response = await API.rooms.list();
+        console.log('Rooms API response:', response);
 
-        if (response.success) {
-            displayRooms(response.data.rooms);
-        } else {
-            showToast('Failed to load rooms', 'error');
-        }
+        const rooms = Array.isArray(response?.data?.rooms)
+            ? response.data.rooms
+            : [];
+
+        displayRooms(rooms);
     } catch (error) {
         console.error('Load rooms error:', error);
-        showToast('An error occurred', 'error');
+        displayRooms([]);
+        showToast('Failed to load rooms', 'error');
     } finally {
         hideLoading();
     }
 }
 
-// Display rooms
+// ===============================
+// DISPLAY ROOMS (FIXED)
+// ===============================
 function displayRooms(rooms) {
     roomsList.innerHTML = '';
 
-    if (rooms.length === 0) {
+    if (!Array.isArray(rooms) || rooms.length === 0) {
         emptyState.classList.remove('hidden');
         return;
     }
@@ -92,7 +94,9 @@ function displayRooms(rooms) {
     });
 }
 
-// Create room card element
+// ===============================
+// ROOM CARD
+// ===============================
 function createRoomCard(room) {
     const card = document.createElement('div');
     card.className = 'room-card fade-in';
@@ -102,41 +106,43 @@ function createRoomCard(room) {
     const statusText = isFull ? 'Full' : 'Open';
 
     card.innerHTML = `
-    <div class="room-header">
-      <h4 class="room-name">${room.name}</h4>
-      <span class="room-status ${statusClass}">${statusText}</span>
-    </div>
-    <div class="room-info">
-      <div class="room-info-item">
-        <span class="room-info-label">Host:</span>
-        <span class="room-info-value">${room.host}</span>
-      </div>
-      <div class="room-info-item">
-        <span class="room-info-label">Players:</span>
-        <span class="room-info-value">${room.players}/${room.maxPlayers}</span>
-      </div>
-      <div class="room-info-item">
-        <span class="room-info-label">Room Code:</span>
-        <span class="room-info-value">${room.code}</span>
-      </div>
-    </div>
-    <div class="room-footer">
-      <button class="btn ${isFull ? 'btn-secondary' : 'btn-success'}" ${isFull ? 'disabled' : ''}>
-        ${isFull ? 'Room Full' : 'Join Room'}
-      </button>
-    </div>
-  `;
+        <div class="room-header">
+            <h4 class="room-name">${room.name}</h4>
+            <span class="room-status ${statusClass}">${statusText}</span>
+        </div>
+        <div class="room-info">
+            <div class="room-info-item">
+                <span class="room-info-label">Host:</span>
+                <span class="room-info-value">${room.host}</span>
+            </div>
+            <div class="room-info-item">
+                <span class="room-info-label">Players:</span>
+                <span class="room-info-value">${room.players}/${room.maxPlayers}</span>
+            </div>
+            <div class="room-info-item">
+                <span class="room-info-label">Room Code:</span>
+                <span class="room-info-value">${room.code}</span>
+            </div>
+        </div>
+        <div class="room-footer">
+            <button class="btn ${isFull ? 'btn-secondary' : 'btn-success'}"
+                ${isFull ? 'disabled' : ''}>
+                ${isFull ? 'Room Full' : 'Join Room'}
+            </button>
+        </div>
+    `;
 
-    // Add click handler for join button
     if (!isFull) {
-        const joinBtn = card.querySelector('.btn');
-        joinBtn.addEventListener('click', () => joinRoom(room));
+        card.querySelector('.btn')
+            .addEventListener('click', () => joinRoom(room));
     }
 
     return card;
 }
 
-// Join room
+// ===============================
+// JOIN ROOM
+// ===============================
 async function joinRoom(room) {
     showLoading();
 
@@ -144,12 +150,8 @@ async function joinRoom(room) {
         const response = await API.rooms.join(room.id);
 
         if (response.success) {
-            // Store room data
             UserStorage.setRoom(response.data.room);
-
-            showToast('Joined room successfully!', 'success');
-
-            // Navigate to character select
+            showToast('Joined room successfully!');
             setTimeout(() => {
                 window.location.href = 'character-select.html';
             }, 500);
@@ -164,19 +166,19 @@ async function joinRoom(room) {
     }
 }
 
-// Show create room modal
+// ===============================
+// CREATE ROOM MODAL
+// ===============================
 createRoomBtn.addEventListener('click', () => {
     createRoomModal.classList.add('active');
     roomNameInput.focus();
 });
 
-// Hide create room modal
 cancelCreateBtn.addEventListener('click', () => {
     createRoomModal.classList.remove('active');
     createRoomForm.reset();
 });
 
-// Close modal on background click
 createRoomModal.addEventListener('click', (e) => {
     if (e.target === createRoomModal) {
         createRoomModal.classList.remove('active');
@@ -184,12 +186,13 @@ createRoomModal.addEventListener('click', (e) => {
     }
 });
 
-// Create room
+// ===============================
+// CREATE ROOM
+// ===============================
 createRoomForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const roomName = roomNameInput.value.trim();
-
     if (!roomName) {
         showToast('Please enter a room name', 'error');
         return;
@@ -202,12 +205,8 @@ createRoomForm.addEventListener('submit', async (e) => {
         const response = await API.rooms.create(roomName);
 
         if (response.success) {
-            // Store room data
             UserStorage.setRoom(response.data.room);
-
-            showToast('Room created successfully!', 'success');
-
-            // Navigate to character select
+            showToast('Room created successfully!');
             setTimeout(() => {
                 window.location.href = 'character-select.html';
             }, 500);
@@ -223,28 +222,28 @@ createRoomForm.addEventListener('submit', async (e) => {
     }
 });
 
-// Quick play - join first available room
+// ===============================
+// QUICK PLAY (FIXED)
+// ===============================
 quickPlayBtn.addEventListener('click', async () => {
     showLoading();
 
     try {
         const response = await API.rooms.list();
 
-        if (response.success) {
-            const availableRooms = response.data.rooms.filter(
-                room => room.players < room.maxPlayers
-            );
+        const rooms = Array.isArray(response?.data?.rooms)
+            ? response.data.rooms
+            : [];
 
-            if (availableRooms.length > 0) {
-                // Join first available room
-                await joinRoom(availableRooms[0]);
-            } else {
-                hideLoading();
-                showToast('No available rooms. Create one!', 'warning');
-            }
+        const availableRooms = rooms.filter(
+            room => room.players < room.maxPlayers
+        );
+
+        if (availableRooms.length > 0) {
+            await joinRoom(availableRooms[0]);
         } else {
             hideLoading();
-            showToast('Failed to find rooms', 'error');
+            showToast('No available rooms. Create one!', 'warning');
         }
     } catch (error) {
         hideLoading();
@@ -253,25 +252,28 @@ quickPlayBtn.addEventListener('click', async () => {
     }
 });
 
-// Search rooms
+// ===============================
+// SEARCH ROOMS (FIXED)
+// ===============================
 searchInput.addEventListener('input', async () => {
     const searchTerm = searchInput.value.toLowerCase();
 
     const response = await API.rooms.list();
+    const rooms = Array.isArray(response?.data?.rooms)
+        ? response.data.rooms
+        : [];
 
-    if (response.success) {
-        const filteredRooms = response.data.rooms.filter(room =>
-            room.name.toLowerCase().includes(searchTerm) ||
-            room.host.toLowerCase().includes(searchTerm) ||
-            room.code.toLowerCase().includes(searchTerm)
-        );
+    const filteredRooms = rooms.filter(room =>
+        room.name.toLowerCase().includes(searchTerm) ||
+        room.host.toLowerCase().includes(searchTerm) ||
+        room.code.toLowerCase().includes(searchTerm)
+    );
 
-        displayRooms(filteredRooms);
-    }
+    displayRooms(filteredRooms);
 });
 
-// Load rooms on page load
+// ===============================
+// INIT
+// ===============================
 loadRooms();
-
-// Refresh rooms every 5 seconds
 setInterval(loadRooms, 5000);
