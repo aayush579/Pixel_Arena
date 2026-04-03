@@ -1,5 +1,5 @@
 // ===============================
-// ROOM MANAGEMENT ROUTES
+// ROOM MANAGEMENT ROUTES (FINAL FIXED)
 // ===============================
 
 const express = require('express');
@@ -8,32 +8,39 @@ const { v4: uuidv4 } = require('uuid');
 const { rooms } = require('../models/data');
 const { authenticate } = require('../middleware/auth');
 
-// Generate room code
+// ===============================
+// GENERATE ROOM CODE
+// ===============================
 function generateRoomCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-// Get all active rooms
+// ===============================
+// GET ALL ROOMS
+// ===============================
 router.get('/', (req, res) => {
-    // Filter out full rooms or return all
-    const activeRooms = rooms.filter(room => !room.isDeleted).map(room => ({
-        id: room.id,
-        name: room.name,
-        code: room.code,
-        host: room.host,
-        players: room.players.length,
-        maxPlayers: room.maxPlayers,
-        status: room.status,
-        createdAt: room.createdAt,
-    }));
+    const activeRooms = rooms
+        .filter(room => !room.isDeleted)
+        .map(room => ({
+            id: room.id,
+            name: room.name,
+            code: room.code,
+            host: room.host,
+            players: room.players.length,
+            maxPlayers: room.maxPlayers,
+            status: room.status,
+            createdAt: room.createdAt,
+        }));
 
     res.json({
         success: true,
-        data: activeRooms,
+        rooms: activeRooms, // ✅ FIXED
     });
 });
 
-// Create new room
+// ===============================
+// CREATE ROOM
+// ===============================
 router.post('/', authenticate, (req, res) => {
     try {
         const { name } = req.body;
@@ -60,7 +67,7 @@ router.post('/', authenticate, (req, res) => {
                 },
             ],
             maxPlayers: 2,
-            status: 'waiting', // waiting, ready, playing, finished
+            status: 'waiting',
             createdAt: new Date().toISOString(),
             isDeleted: false,
         };
@@ -69,7 +76,7 @@ router.post('/', authenticate, (req, res) => {
 
         res.status(201).json({
             success: true,
-            data: newRoom,
+            room: newRoom, // ✅ FIXED
         });
     } catch (error) {
         console.error('Create room error:', error);
@@ -80,7 +87,9 @@ router.post('/', authenticate, (req, res) => {
     }
 });
 
-// Join room
+// ===============================
+// JOIN ROOM
+// ===============================
 router.post('/:id/join', authenticate, (req, res) => {
     try {
         const { id } = req.params;
@@ -93,7 +102,6 @@ router.post('/:id/join', authenticate, (req, res) => {
             });
         }
 
-        // Check if room is full
         if (room.players.length >= room.maxPlayers) {
             return res.status(400).json({
                 success: false,
@@ -101,17 +109,16 @@ router.post('/:id/join', authenticate, (req, res) => {
             });
         }
 
-        // Check if user is already in room
         const existingPlayer = room.players.find(p => p.id === req.user.id);
+
         if (existingPlayer) {
             return res.json({
                 success: true,
-                data: room,
+                room: room, // ✅ FIXED
                 message: 'Already in room',
             });
         }
 
-        // Add player to room
         room.players.push({
             id: req.user.id,
             username: req.user.username,
@@ -121,7 +128,7 @@ router.post('/:id/join', authenticate, (req, res) => {
 
         res.json({
             success: true,
-            data: room,
+            room: room, // ✅ FIXED
         });
     } catch (error) {
         console.error('Join room error:', error);
@@ -132,7 +139,9 @@ router.post('/:id/join', authenticate, (req, res) => {
     }
 });
 
-// Leave room
+// ===============================
+// LEAVE ROOM
+// ===============================
 router.delete('/:id/leave', authenticate, (req, res) => {
     try {
         const { id } = req.params;
@@ -145,14 +154,13 @@ router.delete('/:id/leave', authenticate, (req, res) => {
             });
         }
 
-        // Remove player from room
+        // Remove player
         room.players = room.players.filter(p => p.id !== req.user.id);
 
-        // If room is empty, mark as deleted
+        // Handle room state
         if (room.players.length === 0) {
             room.isDeleted = true;
-        } else if (room.hostId === req.user.id && room.players.length > 0) {
-            // Transfer host to next player
+        } else if (room.hostId === req.user.id) {
             room.host = room.players[0].username;
             room.hostId = room.players[0].id;
         }
@@ -170,7 +178,9 @@ router.delete('/:id/leave', authenticate, (req, res) => {
     }
 });
 
-// Get room details
+// ===============================
+// GET ROOM DETAILS
+// ===============================
 router.get('/:id', (req, res) => {
     const { id } = req.params;
     const room = rooms.find(r => r.id === id && !r.isDeleted);
@@ -184,7 +194,7 @@ router.get('/:id', (req, res) => {
 
     res.json({
         success: true,
-        data: room,
+        room: room, // ✅ FIXED
     });
 });
 
