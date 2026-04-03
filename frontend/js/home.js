@@ -1,5 +1,5 @@
 // ===============================
-// HOME PAGE LOGIC
+// HOME PAGE LOGIC (FINAL FIXED)
 // ===============================
 
 // Check authentication
@@ -52,7 +52,7 @@ logoutBtn.addEventListener('click', () => {
 });
 
 // ===============================
-// LOAD ROOMS (FIXED)
+// LOAD ROOMS
 // ===============================
 async function loadRooms() {
     showLoading();
@@ -76,7 +76,7 @@ async function loadRooms() {
 }
 
 // ===============================
-// DISPLAY ROOMS (FIXED)
+// DISPLAY ROOMS
 // ===============================
 function displayRooms(rooms) {
     roomsList.innerHTML = '';
@@ -141,7 +141,7 @@ function createRoomCard(room) {
 }
 
 // ===============================
-// JOIN ROOM
+// JOIN ROOM (FIXED)
 // ===============================
 async function joinRoom(room) {
     showLoading();
@@ -150,7 +150,20 @@ async function joinRoom(room) {
         const response = await API.rooms.join(room.id);
 
         if (response.success) {
-            UserStorage.setRoom(response.data.room);
+
+            // ✅ FIXED ROOM EXTRACTION
+            const roomData = response.data?.room || response.data;
+
+            if (!roomData || !roomData.id) {
+                console.error("❌ Invalid room:", response);
+                showToast('Room data error', 'error');
+                return;
+            }
+
+            UserStorage.setRoom(roomData);
+
+            console.log("✅ Joined room:", roomData);
+
             showToast('Joined room successfully!');
             setTimeout(() => {
                 window.location.href = 'character-select.html';
@@ -179,15 +192,8 @@ cancelCreateBtn.addEventListener('click', () => {
     createRoomForm.reset();
 });
 
-createRoomModal.addEventListener('click', (e) => {
-    if (e.target === createRoomModal) {
-        createRoomModal.classList.remove('active');
-        createRoomForm.reset();
-    }
-});
-
 // ===============================
-// CREATE ROOM
+// CREATE ROOM (FIXED)
 // ===============================
 createRoomForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -205,7 +211,20 @@ createRoomForm.addEventListener('submit', async (e) => {
         const response = await API.rooms.create(roomName);
 
         if (response.success) {
-            UserStorage.setRoom(response.data.room);
+
+            // ✅ FIXED ROOM EXTRACTION
+            const roomData = response.data?.room || response.data;
+
+            if (!roomData || !roomData.id) {
+                console.error("❌ Invalid room:", response);
+                showToast('Room data error', 'error');
+                return;
+            }
+
+            UserStorage.setRoom(roomData);
+
+            console.log("✅ Room created:", roomData);
+
             showToast('Room created successfully!');
             setTimeout(() => {
                 window.location.href = 'character-select.html';
@@ -223,7 +242,7 @@ createRoomForm.addEventListener('submit', async (e) => {
 });
 
 // ===============================
-// QUICK PLAY (FIXED)
+// QUICK PLAY
 // ===============================
 quickPlayBtn.addEventListener('click', async () => {
     showLoading();
@@ -253,7 +272,7 @@ quickPlayBtn.addEventListener('click', async () => {
 });
 
 // ===============================
-// SEARCH ROOMS (FIXED)
+// SEARCH ROOMS
 // ===============================
 searchInput.addEventListener('input', async () => {
     const searchTerm = searchInput.value.toLowerCase();
