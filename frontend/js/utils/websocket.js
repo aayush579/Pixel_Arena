@@ -40,6 +40,10 @@ class WebSocketManager {
             username: user.username
         });
     }
+    wsManager.send("player:selectCharacter", {
+    roomId,
+    character: selectedCharacter
+});
 
     send(event, data) {
         this.socket.emit(event, data);
