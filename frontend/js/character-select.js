@@ -1,5 +1,5 @@
 // ===============================
-// CHARACTER SELECT LOGIC
+// CHARACTER SELECT LOGIC (FINAL FIXED)
 // ===============================
 
 // Check authentication
@@ -15,14 +15,16 @@ const backBtn = document.getElementById('backBtn');
 // State
 let selectedCharacter = null;
 
-// Character icons/emojis for preview
+// Character icons/emojis
 const characterIcons = {
     cyborg: '🤖',
     ninja: '🥷',
     warrior: '⚔️',
 };
 
-// Load and display characters
+// ===============================
+// LOAD CHARACTERS
+// ===============================
 function loadCharacters() {
     charactersGrid.innerHTML = '';
 
@@ -32,69 +34,64 @@ function loadCharacters() {
     });
 }
 
-// Create character card
+// ===============================
+// CREATE CARD
+// ===============================
 function createCharacterCard(character) {
     const card = document.createElement('div');
     card.className = 'character-card fade-in';
     card.dataset.characterId = character.id;
 
-    // Calculate max stat for percentage
     const maxStat = 10;
 
     card.innerHTML = `
-    <div class="character-preview">
-      <div class="character-preview-placeholder">
-        ${characterIcons[character.id] || '👤'}
-      </div>
-    </div>
-    <h3 class="character-name">${character.name}</h3>
-    <p class="character-description">${character.description}</p>
-    <div class="character-stats">
-      <div class="stat-item">
-        <div class="stat-label">
-          <span class="stat-name">Speed</span>
-          <span class="stat-value">${character.stats.speed}/${maxStat}</span>
+        <div class="character-preview">
+            <div class="character-preview-placeholder">
+                ${characterIcons[character.id] || '👤'}
+            </div>
         </div>
-        <div class="stat-bar">
-          <div class="stat-bar-fill" style="width: ${(character.stats.speed / maxStat) * 100}%"></div>
-        </div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">
-          <span class="stat-name">Power</span>
-          <span class="stat-value">${character.stats.power}/${maxStat}</span>
-        </div>
-        <div class="stat-bar">
-          <div class="stat-bar-fill" style="width: ${(character.stats.power / maxStat) * 100}%"></div>
-        </div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">
-          <span class="stat-name">Defense</span>
-          <span class="stat-value">${character.stats.defense}/${maxStat}</span>
-        </div>
-        <div class="stat-bar">
-          <div class="stat-bar-fill" style="width: ${(character.stats.defense / maxStat) * 100}%"></div>
-        </div>
-      </div>
-    </div>
-  `;
+        <h3 class="character-name">${character.name}</h3>
+        <p class="character-description">${character.description}</p>
 
-    // Add click handler
+        <div class="character-stats">
+            ${createStat("Speed", character.stats.speed, maxStat)}
+            ${createStat("Power", character.stats.power, maxStat)}
+            ${createStat("Defense", character.stats.defense, maxStat)}
+        </div>
+    `;
+
     card.addEventListener('click', () => selectCharacter(character.id));
 
     return card;
 }
 
-// Select character
+// ===============================
+// CREATE STAT BAR
+// ===============================
+function createStat(name, value, max) {
+    return `
+        <div class="stat-item">
+            <div class="stat-label">
+                <span>${name}</span>
+                <span>${value}/${max}</span>
+            </div>
+            <div class="stat-bar">
+                <div class="stat-bar-fill" style="width:${(value / max) * 100}%"></div>
+            </div>
+        </div>
+    `;
+}
+
+// ===============================
+// SELECT CHARACTER
+// ===============================
 function selectCharacter(characterId) {
-    // Remove previous selection
     document.querySelectorAll('.character-card').forEach(card => {
         card.classList.remove('selected');
     });
 
-    // Add selection to clicked card
     const selectedCard = document.querySelector(`[data-character-id="${characterId}"]`);
+
     if (selectedCard) {
         selectedCard.classList.add('selected');
         selectedCharacter = characterId;
@@ -102,43 +99,92 @@ function selectCharacter(characterId) {
     }
 }
 
-// Confirm selection
+// ===============================
+// CONFIRM SELECTION (IMPORTANT FIX)
+// ===============================
 confirmBtn.addEventListener('click', () => {
-    if (!selectedCharacter) {
+    if (!selectedCharacter) return;
+
+    const room = UserStorage.getRoom();
+    const user = UserStorage.getUser();
+
+    console.log("Room:", room);
+    console.log("User:", user);
+
+    // Safety checks
+    if (!room || !room.id) {
+        alert("Room not found!");
         return;
     }
 
-    // Store selected character
+    if (!user || !user.id) {
+        alert("User not found!");
+        return;
+    }
+
+    // Save locally
     UserStorage.setCharacter(selectedCharacter);
 
-    // Show toast
+    // ===============================
+    // CONNECT SOCKET
+    // ===============================
+    if (!wsManager.socket || !wsManager.socket.connected) {
+        console.log("🔌 Connecting socket...");
+        wsManager.connect();
+    }
+
+    // ===============================
+    // JOIN ROOM FIRST
+    // ===============================
+    wsManager.send("room:join", {
+        roomId: room.id,
+        userId: user.id,
+        username: user.username
+    });
+
+    // ===============================
+    // SEND CHARACTER AFTER JOIN
+    // ===============================
+    setTimeout(() => {
+        wsManager.send("player:selectCharacter", {
+            roomId: room.id,
+            character: selectedCharacter
+        });
+
+        console.log("🎭 Character sent:", selectedCharacter);
+    }, 300);
+
+    // ===============================
+    // UI FEEDBACK
+    // ===============================
     const toast = document.createElement('div');
     toast.className = 'toast success';
     toast.textContent = `${CONFIG.CHARACTERS[selectedCharacter].name} selected!`;
     document.body.appendChild(toast);
 
-    setTimeout(() => {
-        toast.remove();
-    }, 2000);
+    setTimeout(() => toast.remove(), 2000);
 
-    // Navigate to lobby
+    // ===============================
+    // NAVIGATE TO LOBBY
+    // ===============================
     setTimeout(() => {
         window.location.href = 'lobby.html';
-    }, 500);
+    }, 700);
 });
 
-// Back button
+// ===============================
+// BACK BUTTON
+// ===============================
 backBtn.addEventListener('click', () => {
-    // Clear room data
     UserStorage.setRoom(null);
     window.location.href = 'home.html';
 });
 
-// Load characters on page load
+// ===============================
+// INIT
+// ===============================
 loadCharacters();
 
-// Pre-select if already chosen
-const previouslySelected = UserStorage.getCharacter();
-if (previouslySelected) {
-    selectCharacter(previouslySelected);
-}
+// Preselect previous
+const prev = UserStorage.getCharacter();
+if (prev) selectCharacter(prev);
