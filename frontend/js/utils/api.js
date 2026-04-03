@@ -1,72 +1,34 @@
-// ===============================
-// API CLIENT
-// ===============================
-
-const CONFIG = window.CONFIG;
-
-const API = {
-    async request(endpoint, options = {}) {
-        const { method = 'GET', body } = options;
-
-        const headers = {};
-
-        // ✅ ONLY standard Authorization header
-        const token = UserStorage.getToken();
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        if (body) {
-            headers['Content-Type'] = 'application/json';
-        }
-
-        try {
-            const url = `${CONFIG.API_BASE_URL}${endpoint}`;
-
-            const response = await fetch(url, {
-                method,
-                headers,
-                body: body ? JSON.stringify(body) : undefined,
-            });
-
-            if (response.status === 401) {
-                UserStorage.clearSession();
-                window.location.href = '../index.html';
-                return { success: false, error: 'Unauthorized' };
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Request failed');
-            }
-
-            return { success: true, data };
-        } catch (error) {
-            console.error('API request error:', error);
-            return { success: false, error: error.message };
-        }
+rooms: {
+    async list() {
+        return API.call('/rooms');
     },
 
-    async call(endpoint, options = {}) {
-        if (CONFIG.USE_MOCK) {
-            return this.mockRequest(endpoint, options);
+    async create(name) {
+        const res = await API.call('/rooms', {
+            method: 'POST',
+            body: { name },
+        });
+
+        // ✅ SAVE ROOM (IMPORTANT FIX)
+        if (res.success && res.data?.room) {
+            UserStorage.setRoom(res.data.room);
+            console.log("✅ Room stored (create):", res.data.room);
         }
-        return this.request(endpoint, options);
+
+        return res;
     },
 
-    rooms: {
-        list() {
-            return API.call('/rooms');
-        },
-        create(name) {
-            return API.call('/rooms', {
-                method: 'POST',
-                body: { name },
-            });
-        },
-        join(roomId) {
-            return API.call(`/rooms/${roomId}/join`, { method: 'POST' });
-        },
+    async join(roomId) {
+        const res = await API.call(`/rooms/${roomId}/join`, {
+            method: 'POST'
+        });
+
+        // ✅ SAVE ROOM (IMPORTANT FIX)
+        if (res.success && res.data?.room) {
+            UserStorage.setRoom(res.data.room);
+            console.log("✅ Room stored (join):", res.data.room);
+        }
+
+        return res;
     },
-};
+}
