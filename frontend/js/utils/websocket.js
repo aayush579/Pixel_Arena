@@ -1,14 +1,17 @@
 // ===============================
-// SOCKET.IO CLIENT MANAGER
+// SOCKET.IO CLIENT MANAGER (FINAL FIXED)
 // ===============================
 
-import { io } from "socket.io-client";
+const CONFIG = window.CONFIG;
 
 class WebSocketManager {
     constructor() {
         this.socket = null;
     }
 
+    // ===============================
+    // CONNECT
+    // ===============================
     connect() {
         this.socket = io("https://pixel-arena-x64j.onrender.com", {
             transports: ["websocket"]
@@ -31,6 +34,9 @@ class WebSocketManager {
         });
     }
 
+    // ===============================
+    // JOIN ROOM
+    // ===============================
     joinRoom(roomId) {
         const user = UserStorage.getUser();
 
@@ -40,23 +46,35 @@ class WebSocketManager {
             username: user.username
         });
     }
-    wsManager.send("player:selectCharacter", {
-    roomId,
-    character: selectedCharacter
-});
 
+    // ===============================
+    // SEND EVENT
+    // ===============================
     send(event, data) {
+        if (!this.socket) {
+            console.warn("⚠️ Socket not connected");
+            return;
+        }
         this.socket.emit(event, data);
     }
 
+    // ===============================
+    // LISTEN EVENTS
+    // ===============================
     on(event, callback) {
+        if (!this.socket) return;
         this.socket.on(event, callback);
     }
 
+    // ===============================
+    // DISCONNECT
+    // ===============================
     disconnect() {
         if (this.socket) this.socket.disconnect();
     }
 }
 
-const wsManager = new WebSocketManager();
-export default wsManager;
+// ===============================
+// GLOBAL INSTANCE (IMPORTANT)
+// ===============================
+window.wsManager = new WebSocketManager();
