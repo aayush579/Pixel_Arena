@@ -1,5 +1,5 @@
 // ===============================
-// LOBBY LOGIC (FINAL FIXED)
+// LOBBY LOGIC (PRO VERSION)
 // ===============================
 
 // Check authentication
@@ -41,8 +41,7 @@ const characterIcons = {
 // State
 let isReady = false;
 let isHost = room.host === user.username;
-let player2Joined = false;
-let player2Ready = false;
+let player2 = null;
 
 // ===============================
 // INIT UI
@@ -64,24 +63,22 @@ function initializeLobby() {
 // ===============================
 function updateUI() {
     player1Status.textContent = isReady ? 'Ready' : 'Not Ready';
-    player1Status.className = isReady
-        ? 'player-status ready'
-        : 'player-status not-ready';
+    player1Status.className = isReady ? 'player-status ready' : 'player-status not-ready';
 
     readyBtn.textContent = isReady ? 'Not Ready' : 'Ready';
 
     if (isHost) {
         startBtn.style.display = 'block';
-        startBtn.disabled = !(player2Joined && isReady && player2Ready);
+        startBtn.disabled = !(player2 && isReady && player2.ready);
     } else {
         startBtn.style.display = 'none';
     }
 
-    if (!player2Joined) {
+    if (!player2) {
         statusMessage.textContent = "Waiting for opponent...";
     } else if (!isReady) {
         statusMessage.textContent = "Click Ready";
-    } else if (!player2Ready) {
+    } else if (!player2.ready) {
         statusMessage.textContent = "Waiting for opponent...";
     } else {
         statusMessage.textContent = "Ready to start!";
@@ -89,29 +86,33 @@ function updateUI() {
 }
 
 // ===============================
-// SOCKET CONNECTION (FIXED)
+// SOCKET CONNECTION (PRO)
 // ===============================
 if (!CONFIG.API.USE_MOCK) {
 
     wsManager.connect();
 
-    // ✅ JOIN ROOM AFTER CONNECT
-    setTimeout(() => {
+    wsManager.on("connect", () => {
+        console.log("🔌 Connected");
+
+        // Join room safely
         wsManager.send("room:join", {
             roomId: room.id,
             userId: user.id,
             username: user.username
         });
-
-        console.log("✅ Joined room:", room.id);
-    }, 300);
+    });
 
     // ===============================
-    // SOCKET LISTENERS
+    // PLAYER JOINED
     // ===============================
-
     wsManager.on('player:joined', (data) => {
-        player2Joined = true;
+        player2 = {
+            id: data.userId,
+            username: data.username,
+            ready: false,
+            character: null
+        };
 
         player2Card.classList.add('joined');
         player2Card.innerHTML = `
@@ -119,30 +120,74 @@ if (!CONFIG.API.USE_MOCK) {
                 <h3>Player 2</h3>
                 <span class="player-status not-ready">Not Ready</span>
             </div>
-            <p>${data.username}</p>
+            <div class="player-character">
+                <div class="character-icon">👤</div>
+                <p>${data.username}</p>
+            </div>
         `;
 
         updateUI();
     });
 
-    wsManager.on('player:ready', (data) => {
-        player2Ready = data.ready;
-        updateUI();
+    // ===============================
+    // CHARACTER SELECTED
+    // ===============================
+    wsManager.on('player:characterSelected', (data) => {
+        if (player2 && player2.id === data.userId) {
+            player2.character = data.character;
+
+            player2Card.innerHTML = `
+                <div class="player-header">
+                    <h3>Player 2</h3>
+                    <span class="player-status not-ready">Not Ready</span>
+                </div>
+                <div class="player-character">
+                    <div class="character-icon">${characterIcons[data.character]}</div>
+                    <p>${player2.username}</p>
+                </div>
+            `;
+        }
     });
 
+    // ===============================
+    // READY UPDATE
+    // ===============================
+    wsManager.on('player:ready', (data) => {
+        if (player2 && player2.id === data.userId) {
+            player2.ready = data.ready;
+
+            const status = player2Card.querySelector('.player-status');
+            if (status) {
+                status.textContent = data.ready ? "Ready" : "Not Ready";
+                status.className = data.ready
+                    ? "player-status ready"
+                    : "player-status not-ready";
+            }
+
+            updateUI();
+        }
+    });
+
+    // ===============================
+    // GAME START
+    // ===============================
     wsManager.on('game:start', () => {
         window.location.href = 'game.html';
     });
 
+    // ===============================
+    // PLAYER LEFT
+    // ===============================
     wsManager.on('player:left', () => {
-        player2Joined = false;
-        player2Ready = false;
+        player2 = null;
+        player2Card.classList.remove('joined');
+        player2Card.innerHTML = "<p>Waiting for player...</p>";
         updateUI();
     });
 }
 
 // ===============================
-// READY BUTTON (FIXED)
+// READY BUTTON
 // ===============================
 readyBtn.addEventListener('click', () => {
     isReady = !isReady;
@@ -160,7 +205,7 @@ readyBtn.addEventListener('click', () => {
 // START GAME
 // ===============================
 startBtn.addEventListener('click', () => {
-    if (!player2Joined || !isReady || !player2Ready) return;
+    if (!player2 || !isReady || !player2.ready) return;
 
     wsManager.send("game:start", {
         roomId: room.id
@@ -171,6 +216,7 @@ startBtn.addEventListener('click', () => {
 // LEAVE ROOM
 // ===============================
 leaveBtn.addEventListener('click', () => {
+    wsManager.disconnect(); // 🔥 cleanup
     UserStorage.setRoom(null);
     window.location.href = 'home.html';
 });
