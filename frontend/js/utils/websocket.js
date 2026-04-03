@@ -1,115 +1,58 @@
 // ===============================
-// SOCKET.IO EVENT HANDLERS (FINAL)
+// SOCKET.IO CLIENT MANAGER
 // ===============================
 
-const { rooms, socketConnections, gameSessions } = require('../models/data');
+import { io } from "socket.io-client";
 
-function setupSocketHandlers(io) {
-    io.on('connection', (socket) => {
-        console.log(`🔌 Client connected: ${socket.id}`);
+class WebSocketManager {
+    constructor() {
+        this.socket = null;
+    }
 
-        socket.userId = null;
-        socket.username = null;
-        socket.roomId = null;
-
-        // ===============================
-        // AUTHENTICATE USER
-        // ===============================
-        socket.on('authenticate', ({ userId, username }) => {
-            socket.userId = userId;
-            socket.username = username;
-
-            socketConnections.set(userId, socket.id);
-
-            console.log(`✅ Authenticated: ${username}`);
+    connect() {
+        this.socket = io("https://pixel-arena-x64j.onrender.com", {
+            transports: ["websocket"]
         });
 
-        // ===============================
-        // JOIN ROOM
-        // ===============================
-        socket.on('room:join', ({ roomId, userId, username }) => {
-            const room = rooms.find(r => r.id === roomId && !r.isDeleted);
+        this.socket.on("connect", () => {
+            console.log("✅ Connected:", this.socket.id);
 
-            if (!room) {
-                socket.emit('error', { message: 'Room not found' });
-                return;
-            }
+            const user = UserStorage.getUser();
 
-            // ✅ Add player if not exists
-            const exists = room.players.find(p => p.id === userId);
-            if (!exists) {
-                room.players.push({
-                    id: userId,
-                    username,
-                    ready: false
-                });
-            }
-
-            socket.join(roomId);
-            socket.roomId = roomId;
-            socket.userId = userId;
-            socket.username = username;
-
-            console.log(`👤 ${username} joined ${room.name}`);
-
-            // Notify others
-            socket.to(roomId).emit('player:joined', {
-                userId,
-                username,
-                players: room.players
-            });
-
-            // Send full state
-            io.to(roomId).emit('room:update', { room });
-        });
-
-        // ===============================
-        // PLAYER READY
-        // ===============================
-        socket.on('player:ready', ({ roomId, ready }) => {
-            const room = rooms.find(r => r.id === roomId);
-            if (!room) return;
-
-            const player = room.players.find(p => p.id === socket.userId);
-            if (player) {
-                player.ready = ready;
-
-                io.to(roomId).emit('player:ready', {
-                    userId: socket.userId,
-                    ready
-                });
-            }
-        });
-
-        // ===============================
-        // PLAYER MOVE
-        // ===============================
-        socket.on('player:move', (data) => {
-            socket.to(data.roomId).emit('player:move', {
-                userId: socket.userId,
-                ...data
+            // 🔥 Authenticate
+            this.socket.emit("authenticate", {
+                userId: user.id,
+                username: user.username
             });
         });
 
-        // ===============================
-        // DISCONNECT
-        // ===============================
-        socket.on('disconnect', () => {
-            console.log(`❌ Disconnected: ${socket.id}`);
-
-            if (socket.roomId) {
-                const room = rooms.find(r => r.id === socket.roomId);
-
-                if (room) {
-                    room.players = room.players.filter(p => p.id !== socket.userId);
-
-                    socket.to(socket.roomId).emit('player:left', {
-                        userId: socket.userId
-                    });
-                }
-            }
+        this.socket.on("disconnect", () => {
+            console.log("❌ Disconnected");
         });
-    });
+    }
+
+    joinRoom(roomId) {
+        const user = UserStorage.getUser();
+
+        this.socket.emit("room:join", {
+            roomId,
+            userId: user.id,
+            username: user.username
+        });
+    }
+
+    send(event, data) {
+        this.socket.emit(event, data);
+    }
+
+    on(event, callback) {
+        this.socket.on(event, callback);
+    }
+
+    disconnect() {
+        if (this.socket) this.socket.disconnect();
+    }
 }
 
-module.exports = { setupSocketHandlers };
+const wsManager = new WebSocketManager();
+export default wsManager;
