@@ -6,8 +6,8 @@ window.CONFIG = {
   // ===============================
   // API CONFIG
   // ===============================
-  API_BASE_URL: "https://pixelarena-production.up.railway.app/api",
-  SOCKET_URL: "https://pixelarena-production.up.railway.app",
+  API_BASE_URL: "https://pixel-arena-x64j.onrender.com/api",
+  SOCKET_URL: "https://pixel-arena-x64j.onrender.com",
   USE_MOCK: false,
 
   // ===============================
