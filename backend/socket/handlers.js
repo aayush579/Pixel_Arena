@@ -34,6 +34,30 @@ function setupSocketHandlers(io) {
                 socket.emit('error', { message: 'Room not found' });
                 return;
             }
+            // ===============================
+// SELECT CHARACTER
+// ===============================
+socket.on('player:selectCharacter', ({ roomId, character }) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    const player = room.players.find(p => p.id === socket.userId);
+
+    if (player) {
+        player.character = character;
+
+        console.log(`🎭 ${socket.username} selected ${character}`);
+
+        // Broadcast to all players
+        io.to(roomId).emit('player:characterSelected', {
+            userId: socket.userId,
+            character
+        });
+
+        // Send updated room
+        io.to(roomId).emit('room:update', { room });
+    }
+});
 
             // ✅ Add player if not exists
             const exists = room.players.find(p => p.id === userId);
