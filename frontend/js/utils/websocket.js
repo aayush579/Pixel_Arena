@@ -1,134 +1,115 @@
 // ===============================
-// WEBSOCKET MANAGER
+// SOCKET.IO EVENT HANDLERS (FINAL)
 // ===============================
 
-class WebSocketManager {
-    constructor() {
-        this.ws = null;
-        this.connected = false;
-        this.listeners = {};
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 2000;
-    }
+const { rooms, socketConnections, gameSessions } = require('../models/data');
 
-    // Connect to WebSocket server
-    connect(roomId) {
-        if (CONFIG.API.USE_MOCK) {
-            console.log('🔌 Using mock WebSocket');
-            this.connected = true;
-            this.emit('connected');
-            return;
-        }
+function setupSocketHandlers(io) {
+    io.on('connection', (socket) => {
+        console.log(`🔌 Client connected: ${socket.id}`);
 
-        const token = UserStorage.getToken();
-        const url = `${CONFIG.API.WS_URL}?token=${token}&room=${roomId}`;
+        socket.userId = null;
+        socket.username = null;
+        socket.roomId = null;
 
-        try {
-            this.ws = new WebSocket(url);
+        // ===============================
+        // AUTHENTICATE USER
+        // ===============================
+        socket.on('authenticate', ({ userId, username }) => {
+            socket.userId = userId;
+            socket.username = username;
 
-            this.ws.onopen = () => {
-                console.log('🔌 WebSocket connected');
-                this.connected = true;
-                this.reconnectAttempts = 0;
-                this.emit('connected');
-            };
+            socketConnections.set(userId, socket.id);
 
-            this.ws.onmessage = (event) => {
-                try {
-                    const message = JSON.parse(event.data);
-                    this.emit(message.type, message.data);
-                } catch (error) {
-                    console.error('WebSocket message parse error:', error);
+            console.log(`✅ Authenticated: ${username}`);
+        });
+
+        // ===============================
+        // JOIN ROOM
+        // ===============================
+        socket.on('room:join', ({ roomId, userId, username }) => {
+            const room = rooms.find(r => r.id === roomId && !r.isDeleted);
+
+            if (!room) {
+                socket.emit('error', { message: 'Room not found' });
+                return;
+            }
+
+            // ✅ Add player if not exists
+            const exists = room.players.find(p => p.id === userId);
+            if (!exists) {
+                room.players.push({
+                    id: userId,
+                    username,
+                    ready: false
+                });
+            }
+
+            socket.join(roomId);
+            socket.roomId = roomId;
+            socket.userId = userId;
+            socket.username = username;
+
+            console.log(`👤 ${username} joined ${room.name}`);
+
+            // Notify others
+            socket.to(roomId).emit('player:joined', {
+                userId,
+                username,
+                players: room.players
+            });
+
+            // Send full state
+            io.to(roomId).emit('room:update', { room });
+        });
+
+        // ===============================
+        // PLAYER READY
+        // ===============================
+        socket.on('player:ready', ({ roomId, ready }) => {
+            const room = rooms.find(r => r.id === roomId);
+            if (!room) return;
+
+            const player = room.players.find(p => p.id === socket.userId);
+            if (player) {
+                player.ready = ready;
+
+                io.to(roomId).emit('player:ready', {
+                    userId: socket.userId,
+                    ready
+                });
+            }
+        });
+
+        // ===============================
+        // PLAYER MOVE
+        // ===============================
+        socket.on('player:move', (data) => {
+            socket.to(data.roomId).emit('player:move', {
+                userId: socket.userId,
+                ...data
+            });
+        });
+
+        // ===============================
+        // DISCONNECT
+        // ===============================
+        socket.on('disconnect', () => {
+            console.log(`❌ Disconnected: ${socket.id}`);
+
+            if (socket.roomId) {
+                const room = rooms.find(r => r.id === socket.roomId);
+
+                if (room) {
+                    room.players = room.players.filter(p => p.id !== socket.userId);
+
+                    socket.to(socket.roomId).emit('player:left', {
+                        userId: socket.userId
+                    });
                 }
-            };
-
-            this.ws.onerror = (error) => {
-                console.error('🔌 WebSocket error:', error);
-                this.emit('error', error);
-            };
-
-            this.ws.onclose = () => {
-                console.log('🔌 WebSocket disconnected');
-                this.connected = false;
-                this.emit('disconnected');
-                this.attemptReconnect(roomId);
-            };
-        } catch (error) {
-            console.error('WebSocket connection error:', error);
-        }
-    }
-
-    // Disconnect from WebSocket
-    disconnect() {
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
-        this.connected = false;
-    }
-
-    // Attempt to reconnect
-    attemptReconnect(roomId) {
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.reconnectAttempts++;
-            console.log(`🔄 Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-
-            setTimeout(() => {
-                this.connect(roomId);
-            }, this.reconnectDelay);
-        } else {
-            console.error('❌ Max reconnection attempts reached');
-            this.emit('reconnect_failed');
-        }
-    }
-
-    // Send message to server
-    send(type, data) {
-        if (CONFIG.API.USE_MOCK) {
-            console.log('📤 Mock WebSocket send:', type, data);
-            // Simulate echo back for testing
-            setTimeout(() => {
-                this.emit(type, data);
-            }, 100);
-            return;
-        }
-
-        if (this.connected && this.ws) {
-            const message = JSON.stringify({ type, data });
-            this.ws.send(message);
-        } else {
-            console.warn('WebSocket not connected');
-        }
-    }
-
-    // Register event listener
-    on(event, callback) {
-        if (!this.listeners[event]) {
-            this.listeners[event] = [];
-        }
-        this.listeners[event].push(callback);
-    }
-
-    // Remove event listener
-    off(event, callback) {
-        if (this.listeners[event]) {
-            this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
-        }
-    }
-
-    // Emit event to listeners
-    emit(event, data) {
-        if (this.listeners[event]) {
-            this.listeners[event].forEach(callback => callback(data));
-        }
-    }
-
-    // Clear all listeners
-    clearListeners() {
-        this.listeners = {};
-    }
+            }
+        });
+    });
 }
 
-// Global WebSocket instance
-const wsManager = new WebSocketManager();
+module.exports = { setupSocketHandlers };
