@@ -1,14 +1,23 @@
 // ===============================
 // PIXEL ARENA - CONFIGURATION
 // ===============================
-
 window.CONFIG = {
   // ===============================
   // API CONFIG
   // ===============================
   API_BASE_URL: "https://pixel-arena-x64j.onrender.com/api",
   SOCKET_URL: "https://pixel-arena-x64j.onrender.com",
+
+  // ✅ FIXED: USE_MOCK lives here at top level
   USE_MOCK: false,
+
+  // ✅ ADDED: API object so CONFIG.API.USE_MOCK also works
+  //    (prevents crashes if any file uses either path)
+  API: {
+    USE_MOCK: false,
+    BASE_URL: "https://pixel-arena-x64j.onrender.com/api",
+    SOCKET_URL: "https://pixel-arena-x64j.onrender.com"
+  },
 
   // ===============================
   // GAME CONFIG
@@ -64,7 +73,7 @@ window.CONFIG = {
   },
 
   // ===============================
-  // STORAGE KEYS (IMPORTANT)
+  // STORAGE KEYS
   // ===============================
   STORAGE_KEYS: {
     USER: "pixel_arena_user",
@@ -73,5 +82,3 @@ window.CONFIG = {
     ROOM: "pixel_arena_room"
   }
 };
-
-
