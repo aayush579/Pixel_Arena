@@ -116,6 +116,14 @@ function setupSocketListeners() {
         updateUI();
     });
 
+    // Temporary debug — remove later
+wsManager.on('room:update', (data) => {
+    console.log("📦 room:update received:", JSON.stringify(data.room?.players));
+});
+
+wsManager.on('player:joined', (data) => {
+    console.log("👤 player:joined received:", data);
+});
     // ===============================
     // ROOM UPDATE (full state sync)
     // ===============================
