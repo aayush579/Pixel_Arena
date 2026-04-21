@@ -77,31 +77,18 @@ function updateUI() {
     if (!player2) {
         statusMessage.textContent = "Waiting for opponent...";
     } else if (!isReady) {
-        statusMessage.textContent = "Click Ready";
+        statusMessage.textContent = "Click Ready when you're set!";
     } else if (!player2.ready) {
-        statusMessage.textContent = "Waiting for opponent...";
+        statusMessage.textContent = "Waiting for opponent to ready up...";
     } else {
-        statusMessage.textContent = "Ready to start!";
+        statusMessage.textContent = "Both players ready — Start the game!";
     }
 }
 
 // ===============================
-// SOCKET CONNECTION (PRO)
+// SOCKET LISTENERS
 // ===============================
-if (!CONFIG.API.USE_MOCK) {
-
-    wsManager.connect();
-
-    wsManager.on("connect", () => {
-        console.log("🔌 Connected");
-
-        // Join room safely
-        wsManager.send("room:join", {
-            roomId: room.id,
-            userId: user.id,
-            username: user.username
-        });
-    });
+function setupSocketListeners() {
 
     // ===============================
     // PLAYER JOINED
@@ -130,9 +117,43 @@ if (!CONFIG.API.USE_MOCK) {
     });
 
     // ===============================
+    // ROOM UPDATE (full state sync)
+    // ===============================
+    wsManager.on('room:update', (data) => {
+        const updatedRoom = data.room;
+        if (!updatedRoom) return;
+
+        updatedRoom.players.forEach(p => {
+            if (p.id !== user.id) {
+                // Update player 2 state from server
+                player2 = player2 || { id: p.id, username: p.username, ready: false, character: null };
+                player2.ready = p.ready;
+                player2.character = p.character;
+
+                if (p.character) {
+                    player2Card.innerHTML = `
+                        <div class="player-header">
+                            <h3>Player 2</h3>
+                            <span class="player-status ${p.ready ? 'ready' : 'not-ready'}">${p.ready ? 'Ready' : 'Not Ready'}</span>
+                        </div>
+                        <div class="player-character">
+                            <div class="character-icon">${characterIcons[p.character] || '👤'}</div>
+                            <p>${p.username}</p>
+                        </div>
+                    `;
+                }
+            }
+        });
+
+        updateUI();
+    });
+
+    // ===============================
     // CHARACTER SELECTED
     // ===============================
     wsManager.on('player:characterSelected', (data) => {
+        if (data.userId === user.id) return; // ignore own event
+
         if (player2 && player2.id === data.userId) {
             player2.character = data.character;
 
@@ -142,7 +163,7 @@ if (!CONFIG.API.USE_MOCK) {
                     <span class="player-status not-ready">Not Ready</span>
                 </div>
                 <div class="player-character">
-                    <div class="character-icon">${characterIcons[data.character]}</div>
+                    <div class="character-icon">${characterIcons[data.character] || '👤'}</div>
                     <p>${player2.username}</p>
                 </div>
             `;
@@ -153,6 +174,8 @@ if (!CONFIG.API.USE_MOCK) {
     // READY UPDATE
     // ===============================
     wsManager.on('player:ready', (data) => {
+        if (data.userId === user.id) return; // ignore own event
+
         if (player2 && player2.id === data.userId) {
             player2.ready = data.ready;
 
@@ -181,19 +204,65 @@ if (!CONFIG.API.USE_MOCK) {
     wsManager.on('player:left', () => {
         player2 = null;
         player2Card.classList.remove('joined');
-        player2Card.innerHTML = "<p>Waiting for player...</p>";
+        player2Card.innerHTML = `
+            <div class="player-header">
+                <h3 class="player-label">Player 2</h3>
+                <span class="player-status waiting" id="player2Status">Waiting...</span>
+            </div>
+            <div class="player-character">
+                <div class="character-icon waiting-icon">❓</div>
+                <div class="character-info">
+                    <h4 class="character-name">Waiting for opponent...</h4>
+                    <p class="player-name"></p>
+                </div>
+            </div>
+        `;
         updateUI();
     });
 }
 
 // ===============================
+// SOCKET CONNECTION
+// ✅ FIXED: CONFIG.USE_MOCK (not CONFIG.API.USE_MOCK)
+// ✅ FIXED: Don't reconnect if already connected from character-select
+// ===============================
+if (!CONFIG.USE_MOCK) {
+
+    setupSocketListeners();
+
+    if (!wsManager.socket || !wsManager.socket.connected) {
+        // Not connected yet — connect and join
+        wsManager.connect();
+
+        wsManager.on("connect", () => {
+            console.log("🔌 Connected to lobby");
+            wsManager.send("room:join", {
+                roomId: room.id,
+                userId: user.id,
+                username: user.username
+            });
+        });
+
+    } else {
+        // ✅ Already connected from character-select — just re-join
+        console.log("🔌 Already connected, rejoining room...");
+        wsManager.send("room:join", {
+            roomId: room.id,
+            userId: user.id,
+            username: user.username
+        });
+    }
+}
+
+// ===============================
 // READY BUTTON
+// ✅ FIXED: CONFIG.USE_MOCK (not CONFIG.API.USE_MOCK)
 // ===============================
 readyBtn.addEventListener('click', () => {
     isReady = !isReady;
     updateUI();
 
-    if (!CONFIG.API.USE_MOCK) {
+    if (!CONFIG.USE_MOCK) {
         wsManager.send('player:ready', {
             roomId: room.id,
             ready: isReady
@@ -216,7 +285,7 @@ startBtn.addEventListener('click', () => {
 // LEAVE ROOM
 // ===============================
 leaveBtn.addEventListener('click', () => {
-    wsManager.disconnect(); // 🔥 cleanup
+    wsManager.disconnect();
     UserStorage.setRoom(null);
     window.location.href = 'home.html';
 });
