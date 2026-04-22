@@ -1,5 +1,5 @@
 // ===============================
-// SOCKET.IO EVENT HANDLERS (FINAL)
+// SOCKET.IO EVENT HANDLERS (FINAL FIXED)
 // ===============================
 
 const { rooms, socketConnections, gameSessions } = require('../models/data');
@@ -18,14 +18,13 @@ function setupSocketHandlers(io) {
         socket.on('authenticate', ({ userId, username }) => {
             socket.userId = userId;
             socket.username = username;
-
             socketConnections.set(userId, socket.id);
-
             console.log(`✅ Authenticated: ${username}`);
         });
 
         // ===============================
         // JOIN ROOM
+        // ✅ FIXED: player:selectCharacter moved OUTSIDE this handler
         // ===============================
         socket.on('room:join', ({ roomId, userId, username }) => {
             const room = rooms.find(r => r.id === roomId && !r.isDeleted);
@@ -34,37 +33,14 @@ function setupSocketHandlers(io) {
                 socket.emit('error', { message: 'Room not found' });
                 return;
             }
-            // ===============================
-// SELECT CHARACTER
-// ===============================
-socket.on('player:selectCharacter', ({ roomId, character }) => {
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
 
-    const player = room.players.find(p => p.id === socket.userId);
-
-    if (player) {
-        player.character = character;
-
-        console.log(`🎭 ${socket.username} selected ${character}`);
-
-        // Broadcast to all players
-        io.to(roomId).emit('player:characterSelected', {
-            userId: socket.userId,
-            character
-        });
-
-        // Send updated room
-        io.to(roomId).emit('room:update', { room });
-    }
-});
-
-            // ✅ Add player if not exists
+            // Add player if not already in room
             const exists = room.players.find(p => p.id === userId);
             if (!exists) {
                 room.players.push({
                     id: userId,
                     username,
+                    character: null,
                     ready: false
                 });
             }
@@ -74,17 +50,44 @@ socket.on('player:selectCharacter', ({ roomId, character }) => {
             socket.userId = userId;
             socket.username = username;
 
-            console.log(`👤 ${username} joined ${room.name}`);
+            console.log(`👤 ${username} joined room: ${room.name} (${room.players.length} players)`);
+            console.log(`👥 Players in room:`, room.players.map(p => p.username));
 
-            // Notify others
+            // ✅ Notify OTHER players that someone joined
             socket.to(roomId).emit('player:joined', {
                 userId,
                 username,
                 players: room.players
             });
 
-            // Send full state
+            // ✅ Send full room state to ALL players including the one who just joined
             io.to(roomId).emit('room:update', { room });
+        });
+
+        // ===============================
+        // SELECT CHARACTER
+        // ✅ FIXED: Now correctly OUTSIDE room:join
+        //    so it registers once per connection, not per join
+        // ===============================
+        socket.on('player:selectCharacter', ({ roomId, character }) => {
+            const room = rooms.find(r => r.id === roomId);
+            if (!room) return;
+
+            const player = room.players.find(p => p.id === socket.userId);
+
+            if (player) {
+                player.character = character;
+                console.log(`🎭 ${socket.username} selected ${character}`);
+
+                // Broadcast to all players in room
+                io.to(roomId).emit('player:characterSelected', {
+                    userId: socket.userId,
+                    character
+                });
+
+                // Send updated room state
+                io.to(roomId).emit('room:update', { room });
+            }
         });
 
         // ===============================
@@ -97,12 +100,29 @@ socket.on('player:selectCharacter', ({ roomId, character }) => {
             const player = room.players.find(p => p.id === socket.userId);
             if (player) {
                 player.ready = ready;
+                console.log(`✅ ${socket.username} is ${ready ? 'ready' : 'not ready'}`);
 
                 io.to(roomId).emit('player:ready', {
                     userId: socket.userId,
                     ready
                 });
+
+                // Send updated room state
+                io.to(roomId).emit('room:update', { room });
             }
+        });
+
+        // ===============================
+        // GAME START
+        // ===============================
+        socket.on('game:start', ({ roomId }) => {
+            const room = rooms.find(r => r.id === roomId);
+            if (!room) return;
+
+            console.log(`🎮 Game starting in room: ${room.name}`);
+            room.status = 'playing';
+
+            io.to(roomId).emit('game:start', { roomId });
         });
 
         // ===============================
@@ -119,17 +139,22 @@ socket.on('player:selectCharacter', ({ roomId, character }) => {
         // DISCONNECT
         // ===============================
         socket.on('disconnect', () => {
-            console.log(`❌ Disconnected: ${socket.id}`);
+            console.log(`❌ Disconnected: ${socket.id} (${socket.username})`);
 
             if (socket.roomId) {
                 const room = rooms.find(r => r.id === socket.roomId);
 
                 if (room) {
                     room.players = room.players.filter(p => p.id !== socket.userId);
+                    console.log(`👥 Players remaining:`, room.players.map(p => p.username));
 
                     socket.to(socket.roomId).emit('player:left', {
-                        userId: socket.userId
+                        userId: socket.userId,
+                        username: socket.username
                     });
+
+                    // Send updated room state to remaining players
+                    io.to(socket.roomId).emit('room:update', { room });
                 }
             }
         });
