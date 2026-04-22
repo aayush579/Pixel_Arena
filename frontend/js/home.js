@@ -52,14 +52,9 @@ async function loadRooms() {
     showLoading();
     try {
         const response = await API.rooms.list();
-
-        // Backend returns: { success: true, data: [...rooms] }
-        const rooms = Array.isArray(response?.data?.data)
-            ? response.data.data
-            : Array.isArray(response?.data)
-                ? response.data
-                : [];
-
+        // ✅ FIXED: use helper that handles all response shapes
+        const rooms = API.extractRooms(response);
+        console.log(`📋 Loaded ${rooms.length} rooms`);
         displayRooms(rooms);
     } catch (error) {
         console.error('Load rooms error:', error);
@@ -130,24 +125,19 @@ function createRoomCard(room) {
 
 // ===============================
 // JOIN ROOM
-// ✅ api.js already saves the room to localStorage
+// ✅ api.js handles room saving via extractRoom()
 // ===============================
 async function joinRoom(room) {
     showLoading();
     try {
         const response = await API.rooms.join(room.id);
-        console.log('Join room response:', response);
 
         if (response.success) {
-            // ✅ Verify room was saved correctly by api.js
             const savedRoom = UserStorage.getRoom();
-            console.log("✅ Room in storage:", JSON.stringify(savedRoom));
-
             if (!savedRoom || !savedRoom.id) {
                 showToast('Room data error', 'error');
                 return;
             }
-
             showToast('Joined room successfully!');
             setTimeout(() => { window.location.href = 'character-select.html'; }, 500);
         } else {
@@ -176,7 +166,7 @@ cancelCreateBtn.addEventListener('click', () => {
 
 // ===============================
 // CREATE ROOM
-// ✅ api.js already saves the room to localStorage
+// ✅ api.js handles room saving via extractRoom()
 // ===============================
 createRoomForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -192,18 +182,13 @@ createRoomForm.addEventListener('submit', async (e) => {
 
     try {
         const response = await API.rooms.create(roomName);
-        console.log('Create room response:', response);
 
         if (response.success) {
-            // ✅ Verify room was saved correctly by api.js
             const savedRoom = UserStorage.getRoom();
-            console.log("✅ Room in storage:", JSON.stringify(savedRoom));
-
             if (!savedRoom || !savedRoom.id) {
                 showToast('Room data error', 'error');
                 return;
             }
-
             showToast('Room created successfully!');
             setTimeout(() => { window.location.href = 'character-select.html'; }, 500);
         } else {
@@ -225,11 +210,7 @@ quickPlayBtn.addEventListener('click', async () => {
     showLoading();
     try {
         const response = await API.rooms.list();
-        const rooms = Array.isArray(response?.data?.data)
-            ? response.data.data
-            : Array.isArray(response?.data)
-                ? response.data
-                : [];
+        const rooms = API.extractRooms(response);
 
         const available = rooms.filter(room => {
             const count = Array.isArray(room.players) ? room.players.length : room.players;
@@ -255,11 +236,7 @@ quickPlayBtn.addEventListener('click', async () => {
 searchInput.addEventListener('input', async () => {
     const term = searchInput.value.toLowerCase();
     const response = await API.rooms.list();
-    const rooms = Array.isArray(response?.data?.data)
-        ? response.data.data
-        : Array.isArray(response?.data)
-            ? response.data
-            : [];
+    const rooms = API.extractRooms(response);
 
     displayRooms(rooms.filter(room =>
         room.name.toLowerCase().includes(term) ||
