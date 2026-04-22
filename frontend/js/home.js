@@ -52,13 +52,12 @@ async function loadRooms() {
     showLoading();
     try {
         const response = await API.rooms.list();
-        console.log('Rooms API response:', response);
 
-        // ✅ FIXED: backend returns response.data as array directly
-        const rooms = Array.isArray(response?.data)
-            ? response.data
-            : Array.isArray(response?.data?.rooms)
-                ? response.data.rooms
+        // Backend returns: { success: true, data: [...rooms] }
+        const rooms = Array.isArray(response?.data?.data)
+            ? response.data.data
+            : Array.isArray(response?.data)
+                ? response.data
                 : [];
 
         displayRooms(rooms);
@@ -83,11 +82,7 @@ function displayRooms(rooms) {
     }
 
     emptyState.classList.add('hidden');
-
-    rooms.forEach(room => {
-        const roomCard = createRoomCard(room);
-        roomsList.appendChild(roomCard);
-    });
+    rooms.forEach(room => roomsList.appendChild(createRoomCard(room)));
 }
 
 // ===============================
@@ -97,16 +92,13 @@ function createRoomCard(room) {
     const card = document.createElement('div');
     card.className = 'room-card fade-in';
 
-    // ✅ FIXED: players can be a number (from listing) or array (from full room)
     const playerCount = Array.isArray(room.players) ? room.players.length : room.players;
     const isFull = playerCount >= room.maxPlayers;
-    const statusClass = isFull ? 'full' : 'open';
-    const statusText = isFull ? 'Full' : 'Open';
 
     card.innerHTML = `
         <div class="room-header">
             <h4 class="room-name">${room.name}</h4>
-            <span class="room-status ${statusClass}">${statusText}</span>
+            <span class="room-status ${isFull ? 'full' : 'open'}">${isFull ? 'Full' : 'Open'}</span>
         </div>
         <div class="room-info">
             <div class="room-info-item">
@@ -137,42 +129,27 @@ function createRoomCard(room) {
 }
 
 // ===============================
-// JOIN ROOM (FIXED)
+// JOIN ROOM
+// ✅ api.js already saves the room to localStorage
 // ===============================
 async function joinRoom(room) {
     showLoading();
-
     try {
         const response = await API.rooms.join(room.id);
         console.log('Join room response:', response);
 
         if (response.success) {
+            // ✅ Verify room was saved correctly by api.js
+            const savedRoom = UserStorage.getRoom();
+            console.log("✅ Room in storage:", JSON.stringify(savedRoom));
 
-            // ✅ FIXED: backend returns full room in response.data directly
-            // The full room has hostId, players array with all player objects
-            const roomData = response.data;
-
-            if (!roomData || !roomData.id) {
-                console.error("❌ Invalid room data:", response);
+            if (!savedRoom || !savedRoom.id) {
                 showToast('Room data error', 'error');
                 return;
             }
 
-            // ✅ Verify hostId exists — critical for host detection in lobby
-            if (!roomData.hostId) {
-                console.warn("⚠️ Room missing hostId:", roomData);
-            }
-
-            console.log("✅ Joined room:", JSON.stringify(roomData));
-            console.log("🔑 hostId:", roomData.hostId, "| my id:", user.id);
-            console.log("🎮 Am I host?", roomData.hostId === user.id);
-
-            UserStorage.setRoom(roomData);
-
             showToast('Joined room successfully!');
-            setTimeout(() => {
-                window.location.href = 'character-select.html';
-            }, 500);
+            setTimeout(() => { window.location.href = 'character-select.html'; }, 500);
         } else {
             showToast(response.error || 'Failed to join room', 'error');
         }
@@ -185,7 +162,21 @@ async function joinRoom(room) {
 }
 
 // ===============================
-// CREATE ROOM (FIXED)
+// CREATE ROOM MODAL
+// ===============================
+createRoomBtn.addEventListener('click', () => {
+    createRoomModal.classList.add('active');
+    roomNameInput.focus();
+});
+
+cancelCreateBtn.addEventListener('click', () => {
+    createRoomModal.classList.remove('active');
+    createRoomForm.reset();
+});
+
+// ===============================
+// CREATE ROOM
+// ✅ api.js already saves the room to localStorage
 // ===============================
 createRoomForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -204,26 +195,17 @@ createRoomForm.addEventListener('submit', async (e) => {
         console.log('Create room response:', response);
 
         if (response.success) {
+            // ✅ Verify room was saved correctly by api.js
+            const savedRoom = UserStorage.getRoom();
+            console.log("✅ Room in storage:", JSON.stringify(savedRoom));
 
-            // ✅ FIXED: backend returns full room in response.data directly
-            const roomData = response.data;
-
-            if (!roomData || !roomData.id) {
-                console.error("❌ Invalid room data:", response);
+            if (!savedRoom || !savedRoom.id) {
                 showToast('Room data error', 'error');
                 return;
             }
 
-            console.log("✅ Room created:", JSON.stringify(roomData));
-            console.log("🔑 hostId:", roomData.hostId, "| my id:", user.id);
-            console.log("🎮 Am I host?", roomData.hostId === user.id);
-
-            UserStorage.setRoom(roomData);
-
             showToast('Room created successfully!');
-            setTimeout(() => {
-                window.location.href = 'character-select.html';
-            }, 500);
+            setTimeout(() => { window.location.href = 'character-select.html'; }, 500);
         } else {
             showToast(response.error || 'Failed to create room', 'error');
         }
@@ -237,40 +219,25 @@ createRoomForm.addEventListener('submit', async (e) => {
 });
 
 // ===============================
-// CREATE ROOM MODAL
-// ===============================
-createRoomBtn.addEventListener('click', () => {
-    createRoomModal.classList.add('active');
-    roomNameInput.focus();
-});
-
-cancelCreateBtn.addEventListener('click', () => {
-    createRoomModal.classList.remove('active');
-    createRoomForm.reset();
-});
-
-// ===============================
 // QUICK PLAY
 // ===============================
 quickPlayBtn.addEventListener('click', async () => {
     showLoading();
-
     try {
         const response = await API.rooms.list();
-
-        const rooms = Array.isArray(response?.data)
-            ? response.data
-            : Array.isArray(response?.data?.rooms)
-                ? response.data.rooms
+        const rooms = Array.isArray(response?.data?.data)
+            ? response.data.data
+            : Array.isArray(response?.data)
+                ? response.data
                 : [];
 
-        const availableRooms = rooms.filter(room => {
-            const playerCount = Array.isArray(room.players) ? room.players.length : room.players;
-            return playerCount < room.maxPlayers;
+        const available = rooms.filter(room => {
+            const count = Array.isArray(room.players) ? room.players.length : room.players;
+            return count < room.maxPlayers;
         });
 
-        if (availableRooms.length > 0) {
-            await joinRoom(availableRooms[0]);
+        if (available.length > 0) {
+            await joinRoom(available[0]);
         } else {
             hideLoading();
             showToast('No available rooms. Create one!', 'warning');
@@ -286,22 +253,19 @@ quickPlayBtn.addEventListener('click', async () => {
 // SEARCH ROOMS
 // ===============================
 searchInput.addEventListener('input', async () => {
-    const searchTerm = searchInput.value.toLowerCase();
-
+    const term = searchInput.value.toLowerCase();
     const response = await API.rooms.list();
-    const rooms = Array.isArray(response?.data)
-        ? response.data
-        : Array.isArray(response?.data?.rooms)
-            ? response.data.rooms
+    const rooms = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : Array.isArray(response?.data)
+            ? response.data
             : [];
 
-    const filteredRooms = rooms.filter(room =>
-        room.name.toLowerCase().includes(searchTerm) ||
-        room.host.toLowerCase().includes(searchTerm) ||
-        room.code.toLowerCase().includes(searchTerm)
-    );
-
-    displayRooms(filteredRooms);
+    displayRooms(rooms.filter(room =>
+        room.name.toLowerCase().includes(term) ||
+        room.host.toLowerCase().includes(term) ||
+        room.code.toLowerCase().includes(term)
+    ));
 });
 
 // ===============================
