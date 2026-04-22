@@ -1,5 +1,5 @@
 // ===============================
-// LOBBY LOGIC (FIXED)
+// LOBBY LOGIC (FINAL FIXED)
 // ===============================
 
 // Check authentication
@@ -12,7 +12,7 @@ const user = UserStorage.getUser();
 const room = UserStorage.getRoom();
 const selectedCharacter = UserStorage.getCharacter();
 
-// Debug — remove after confirming fix
+// Debug
 console.log("🏠 Room data:", JSON.stringify(room));
 console.log("👤 User data:", JSON.stringify(user));
 
@@ -45,12 +45,12 @@ const characterIcons = {
 // State
 let isReady = false;
 
-// ✅ FIXED: Use hostId (user ID) not host (username) for reliable host detection
+// ✅ FIXED: Use hostId (ID) not host (username) for reliable host detection
 let isHost = room.hostId === user.id;
 
 console.log(`🎮 Is host: ${isHost} (room.hostId=${room.hostId}, user.id=${user.id})`);
 
-let player2 = null;
+let opponent = null;
 
 // ===============================
 // INIT UI
@@ -64,7 +64,7 @@ function initializeLobby() {
     player1Character.textContent = character.name;
     player1Icon.textContent = characterIcons[selectedCharacter];
 
-    // ✅ Show correct label based on who you are
+    // ✅ Show correct label — you are always on the left
     const player1Label = document.querySelector('.player-1 .player-label');
     if (player1Label) {
         player1Label.textContent = isHost ? 'Player 1 (Host)' : 'Player 2';
@@ -79,21 +79,20 @@ function initializeLobby() {
 function updateUI() {
     player1Status.textContent = isReady ? 'Ready' : 'Not Ready';
     player1Status.className = isReady ? 'player-status ready' : 'player-status not-ready';
-
     readyBtn.textContent = isReady ? 'Not Ready' : 'Ready';
 
     if (isHost) {
         startBtn.style.display = 'block';
-        startBtn.disabled = !(player2 && isReady && player2.ready);
+        startBtn.disabled = !(opponent && isReady && opponent.ready);
     } else {
         startBtn.style.display = 'none';
     }
 
-    if (!player2) {
+    if (!opponent) {
         statusMessage.textContent = "Waiting for opponent to join...";
     } else if (!isReady) {
         statusMessage.textContent = "Click Ready when you're set!";
-    } else if (!player2.ready) {
+    } else if (!opponent.ready) {
         statusMessage.textContent = "Waiting for opponent to ready up...";
     } else {
         statusMessage.textContent = isHost
@@ -104,12 +103,16 @@ function updateUI() {
 
 // ===============================
 // RENDER OPPONENT CARD
+// ✅ The opponent card always shows the OTHER player
 // ===============================
-function renderPlayer2Card(username, character, ready) {
+function renderOpponentCard(username, character, ready) {
     player2Card.classList.add('joined');
+    // ✅ FIXED: opponent label is opposite of yours
+    const opponentLabel = isHost ? 'Player 2' : 'Player 1 (Host)';
+
     player2Card.innerHTML = `
         <div class="player-header">
-            <h3 class="player-label">${isHost ? 'Player 2' : 'Player 1 (Host)'}</h3>
+            <h3 class="player-label">${opponentLabel}</h3>
             <span class="player-status ${ready ? 'ready' : 'not-ready'}">${ready ? 'Ready' : 'Not Ready'}</span>
         </div>
         <div class="player-character">
@@ -123,11 +126,32 @@ function renderPlayer2Card(username, character, ready) {
 }
 
 // ===============================
+// RESET OPPONENT CARD
+// ===============================
+function resetOpponentCard() {
+    const opponentLabel = isHost ? 'Player 2' : 'Player 1 (Host)';
+    player2Card.classList.remove('joined');
+    player2Card.innerHTML = `
+        <div class="player-header">
+            <h3 class="player-label">${opponentLabel}</h3>
+            <span class="player-status waiting">Waiting...</span>
+        </div>
+        <div class="player-character">
+            <div class="character-icon waiting-icon">❓</div>
+            <div class="character-info">
+                <h4 class="character-name">Waiting for opponent...</h4>
+                <p class="player-name"></p>
+            </div>
+        </div>
+    `;
+}
+
+// ===============================
 // SOCKET LISTENERS
 // ===============================
 function setupSocketListeners() {
 
-    // ✅ room:update fires on every join — use it to sync full state
+    // ✅ room:update fires on every join — primary way to sync both players
     wsManager.on('room:update', (data) => {
         const updatedRoom = data.room;
         if (!updatedRoom) return;
@@ -136,31 +160,31 @@ function setupSocketListeners() {
 
         updatedRoom.players.forEach(p => {
             if (p.id !== user.id) {
-                player2 = {
+                opponent = {
                     id: p.id,
                     username: p.username,
                     ready: p.ready || false,
                     character: p.character || null
                 };
-                renderPlayer2Card(p.username, p.character, p.ready);
+                renderOpponentCard(p.username, p.character, p.ready);
             }
         });
 
         updateUI();
     });
 
-    // Player joined notification
+    // Opponent joined
     wsManager.on('player:joined', (data) => {
         console.log("👤 player:joined:", data);
 
-        player2 = {
+        opponent = {
             id: data.userId,
             username: data.username,
             ready: false,
             character: null
         };
 
-        renderPlayer2Card(data.username, null, false);
+        renderOpponentCard(data.username, null, false);
         updateUI();
     });
 
@@ -168,18 +192,18 @@ function setupSocketListeners() {
     wsManager.on('player:characterSelected', (data) => {
         if (data.userId === user.id) return;
 
-        if (player2 && player2.id === data.userId) {
-            player2.character = data.character;
-            renderPlayer2Card(player2.username, data.character, player2.ready);
+        if (opponent && opponent.id === data.userId) {
+            opponent.character = data.character;
+            renderOpponentCard(opponent.username, data.character, opponent.ready);
         }
     });
 
-    // Opponent ready status changed
+    // Opponent ready status
     wsManager.on('player:ready', (data) => {
         if (data.userId === user.id) return;
 
-        if (player2 && player2.id === data.userId) {
-            player2.ready = data.ready;
+        if (opponent && opponent.id === data.userId) {
+            opponent.ready = data.ready;
 
             const status = player2Card.querySelector('.player-status');
             if (status) {
@@ -199,22 +223,8 @@ function setupSocketListeners() {
     // Opponent left
     wsManager.on('player:left', (data) => {
         console.log("❌ player:left:", data);
-
-        player2 = null;
-        player2Card.classList.remove('joined');
-        player2Card.innerHTML = `
-            <div class="player-header">
-                <h3 class="player-label">${isHost ? 'Player 2' : 'Player 1 (Host)'}</h3>
-                <span class="player-status waiting">Waiting...</span>
-            </div>
-            <div class="player-character">
-                <div class="character-icon waiting-icon">❓</div>
-                <div class="character-info">
-                    <h4 class="character-name">Waiting for opponent...</h4>
-                    <p class="player-name"></p>
-                </div>
-            </div>
-        `;
+        opponent = null;
+        resetOpponentCard();
         updateUI();
     });
 }
@@ -269,7 +279,7 @@ readyBtn.addEventListener('click', () => {
 // START GAME (host only)
 // ===============================
 startBtn.addEventListener('click', () => {
-    if (!isHost || !player2 || !isReady || !player2.ready) return;
+    if (!isHost || !opponent || !isReady || !opponent.ready) return;
 
     wsManager.send("game:start", {
         roomId: room.id
