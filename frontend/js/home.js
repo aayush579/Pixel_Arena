@@ -35,20 +35,14 @@ function showToast(message, type = 'success') {
 }
 
 // Loading
-function showLoading() {
-    loadingOverlay.classList.remove('hidden');
-}
-function hideLoading() {
-    loadingOverlay.classList.add('hidden');
-}
+function showLoading() { loadingOverlay.classList.remove('hidden'); }
+function hideLoading() { loadingOverlay.classList.add('hidden'); }
 
 // Logout
 logoutBtn.addEventListener('click', () => {
     UserStorage.clearSession();
     showToast('Logged out successfully');
-    setTimeout(() => {
-        window.location.href = '../index.html';
-    }, 500);
+    setTimeout(() => { window.location.href = '../index.html'; }, 500);
 });
 
 // ===============================
@@ -56,14 +50,16 @@ logoutBtn.addEventListener('click', () => {
 // ===============================
 async function loadRooms() {
     showLoading();
-
     try {
         const response = await API.rooms.list();
         console.log('Rooms API response:', response);
 
-        const rooms = Array.isArray(response?.data?.rooms)
-            ? response.data.rooms
-            : [];
+        // ✅ FIXED: backend returns response.data as array directly
+        const rooms = Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response?.data?.rooms)
+                ? response.data.rooms
+                : [];
 
         displayRooms(rooms);
     } catch (error) {
@@ -101,7 +97,9 @@ function createRoomCard(room) {
     const card = document.createElement('div');
     card.className = 'room-card fade-in';
 
-    const isFull = room.players >= room.maxPlayers;
+    // ✅ FIXED: players can be a number (from listing) or array (from full room)
+    const playerCount = Array.isArray(room.players) ? room.players.length : room.players;
+    const isFull = playerCount >= room.maxPlayers;
     const statusClass = isFull ? 'full' : 'open';
     const statusText = isFull ? 'Full' : 'Open';
 
@@ -117,7 +115,7 @@ function createRoomCard(room) {
             </div>
             <div class="room-info-item">
                 <span class="room-info-label">Players:</span>
-                <span class="room-info-value">${room.players}/${room.maxPlayers}</span>
+                <span class="room-info-value">${playerCount}/${room.maxPlayers}</span>
             </div>
             <div class="room-info-item">
                 <span class="room-info-label">Room Code:</span>
@@ -125,16 +123,14 @@ function createRoomCard(room) {
             </div>
         </div>
         <div class="room-footer">
-            <button class="btn ${isFull ? 'btn-secondary' : 'btn-success'}"
-                ${isFull ? 'disabled' : ''}>
+            <button class="btn ${isFull ? 'btn-secondary' : 'btn-success'}" ${isFull ? 'disabled' : ''}>
                 ${isFull ? 'Room Full' : 'Join Room'}
             </button>
         </div>
     `;
 
     if (!isFull) {
-        card.querySelector('.btn')
-            .addEventListener('click', () => joinRoom(room));
+        card.querySelector('.btn').addEventListener('click', () => joinRoom(room));
     }
 
     return card;
@@ -148,21 +144,30 @@ async function joinRoom(room) {
 
     try {
         const response = await API.rooms.join(room.id);
+        console.log('Join room response:', response);
 
         if (response.success) {
 
-            // ✅ FIXED ROOM EXTRACTION
-            const roomData = response.data?.room || response.data;
+            // ✅ FIXED: backend returns full room in response.data directly
+            // The full room has hostId, players array with all player objects
+            const roomData = response.data;
 
             if (!roomData || !roomData.id) {
-                console.error("❌ Invalid room:", response);
+                console.error("❌ Invalid room data:", response);
                 showToast('Room data error', 'error');
                 return;
             }
 
-            UserStorage.setRoom(roomData);
+            // ✅ Verify hostId exists — critical for host detection in lobby
+            if (!roomData.hostId) {
+                console.warn("⚠️ Room missing hostId:", roomData);
+            }
 
-            console.log("✅ Joined room:", roomData);
+            console.log("✅ Joined room:", JSON.stringify(roomData));
+            console.log("🔑 hostId:", roomData.hostId, "| my id:", user.id);
+            console.log("🎮 Am I host?", roomData.hostId === user.id);
+
+            UserStorage.setRoom(roomData);
 
             showToast('Joined room successfully!');
             setTimeout(() => {
@@ -178,19 +183,6 @@ async function joinRoom(room) {
         hideLoading();
     }
 }
-
-// ===============================
-// CREATE ROOM MODAL
-// ===============================
-createRoomBtn.addEventListener('click', () => {
-    createRoomModal.classList.add('active');
-    roomNameInput.focus();
-});
-
-cancelCreateBtn.addEventListener('click', () => {
-    createRoomModal.classList.remove('active');
-    createRoomForm.reset();
-});
 
 // ===============================
 // CREATE ROOM (FIXED)
@@ -209,21 +201,24 @@ createRoomForm.addEventListener('submit', async (e) => {
 
     try {
         const response = await API.rooms.create(roomName);
+        console.log('Create room response:', response);
 
         if (response.success) {
 
-            // ✅ FIXED ROOM EXTRACTION
-            const roomData = response.data?.room || response.data;
+            // ✅ FIXED: backend returns full room in response.data directly
+            const roomData = response.data;
 
             if (!roomData || !roomData.id) {
-                console.error("❌ Invalid room:", response);
+                console.error("❌ Invalid room data:", response);
                 showToast('Room data error', 'error');
                 return;
             }
 
-            UserStorage.setRoom(roomData);
+            console.log("✅ Room created:", JSON.stringify(roomData));
+            console.log("🔑 hostId:", roomData.hostId, "| my id:", user.id);
+            console.log("🎮 Am I host?", roomData.hostId === user.id);
 
-            console.log("✅ Room created:", roomData);
+            UserStorage.setRoom(roomData);
 
             showToast('Room created successfully!');
             setTimeout(() => {
@@ -242,6 +237,19 @@ createRoomForm.addEventListener('submit', async (e) => {
 });
 
 // ===============================
+// CREATE ROOM MODAL
+// ===============================
+createRoomBtn.addEventListener('click', () => {
+    createRoomModal.classList.add('active');
+    roomNameInput.focus();
+});
+
+cancelCreateBtn.addEventListener('click', () => {
+    createRoomModal.classList.remove('active');
+    createRoomForm.reset();
+});
+
+// ===============================
 // QUICK PLAY
 // ===============================
 quickPlayBtn.addEventListener('click', async () => {
@@ -250,13 +258,16 @@ quickPlayBtn.addEventListener('click', async () => {
     try {
         const response = await API.rooms.list();
 
-        const rooms = Array.isArray(response?.data?.rooms)
-            ? response.data.rooms
-            : [];
+        const rooms = Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response?.data?.rooms)
+                ? response.data.rooms
+                : [];
 
-        const availableRooms = rooms.filter(
-            room => room.players < room.maxPlayers
-        );
+        const availableRooms = rooms.filter(room => {
+            const playerCount = Array.isArray(room.players) ? room.players.length : room.players;
+            return playerCount < room.maxPlayers;
+        });
 
         if (availableRooms.length > 0) {
             await joinRoom(availableRooms[0]);
@@ -278,9 +289,11 @@ searchInput.addEventListener('input', async () => {
     const searchTerm = searchInput.value.toLowerCase();
 
     const response = await API.rooms.list();
-    const rooms = Array.isArray(response?.data?.rooms)
-        ? response.data.rooms
-        : [];
+    const rooms = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response?.data?.rooms)
+            ? response.data.rooms
+            : [];
 
     const filteredRooms = rooms.filter(room =>
         room.name.toLowerCase().includes(searchTerm) ||
