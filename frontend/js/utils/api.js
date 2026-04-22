@@ -29,6 +29,7 @@ const API = {
                 return { success: false };
             }
             const data = await response.json();
+            console.log(`🔍 API [${method} ${endpoint}] raw response:`, JSON.stringify(data));
             if (!response.ok) {
                 throw new Error(data.message || 'Request failed');
             }
@@ -38,6 +39,7 @@ const API = {
             return { success: false, error: error.message };
         }
     },
+
     // ===============================
     // CALL WRAPPER
     // ===============================
@@ -47,48 +49,55 @@ const API = {
         }
         return this.request(endpoint, options);
     },
+
     // ===============================
-    // ROOM APIs (FIXED)
+    // ROOM APIs
     // ===============================
     rooms: {
         async list() {
             return API.call('/rooms');
         },
+
         async create(name) {
             const res = await API.call('/rooms', {
                 method: 'POST',
                 body: { name },
             });
 
+            console.log("🏗️ Create room res:", JSON.stringify(res));
+
             if (res.success) {
-                // ✅ FIXED: backend returns room directly in res.data
-                // not nested as res.data.room
+                // Try all possible locations the room could be
                 const roomData = res.data?.data || res.data;
+                console.log("🏗️ Extracted roomData:", JSON.stringify(roomData));
 
                 if (roomData && roomData.id) {
                     UserStorage.setRoom(roomData);
                     console.log("✅ Room stored:", roomData);
                 } else {
-                    console.warn("⚠️ Could not extract room from response:", res);
+                    console.warn("⚠️ Could not extract room:", res);
                 }
             }
             return res;
         },
+
         async join(roomId) {
             const res = await API.call(`/rooms/${roomId}/join`, {
                 method: 'POST'
             });
 
+            console.log("🚪 Join room res:", JSON.stringify(res));
+
             if (res.success) {
-                // ✅ FIXED: backend returns room directly in res.data
-                // not nested as res.data.room
+                // Try all possible locations the room could be
                 const roomData = res.data?.data || res.data;
+                console.log("🚪 Extracted roomData:", JSON.stringify(roomData));
 
                 if (roomData && roomData.id) {
                     UserStorage.setRoom(roomData);
                     console.log("✅ Joined room stored:", roomData);
                 } else {
-                    console.warn("⚠️ Could not extract room from response:", res);
+                    console.warn("⚠️ Could not extract room:", res);
                 }
             }
             return res;
