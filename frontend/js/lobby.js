@@ -1,5 +1,5 @@
 // ===============================
-// LOBBY LOGIC (PRO VERSION)
+// LOBBY LOGIC (FIXED)
 // ===============================
 
 // Check authentication
@@ -11,6 +11,10 @@ if (!UserStorage.isAuthenticated()) {
 const user = UserStorage.getUser();
 const room = UserStorage.getRoom();
 const selectedCharacter = UserStorage.getCharacter();
+
+// Debug — remove after confirming fix
+console.log("🏠 Room data:", JSON.stringify(room));
+console.log("👤 User data:", JSON.stringify(user));
 
 // Safety check
 if (!room || !selectedCharacter) {
@@ -40,7 +44,12 @@ const characterIcons = {
 
 // State
 let isReady = false;
-let isHost = room.host === user.username;
+
+// ✅ FIXED: Use hostId (user ID) not host (username) for reliable host detection
+let isHost = room.hostId === user.id;
+
+console.log(`🎮 Is host: ${isHost} (room.hostId=${room.hostId}, user.id=${user.id})`);
+
 let player2 = null;
 
 // ===============================
@@ -54,6 +63,12 @@ function initializeLobby() {
     const character = CONFIG.CHARACTERS[selectedCharacter];
     player1Character.textContent = character.name;
     player1Icon.textContent = characterIcons[selectedCharacter];
+
+    // ✅ Show correct label based on who you are
+    const player1Label = document.querySelector('.player-1 .player-label');
+    if (player1Label) {
+        player1Label.textContent = isHost ? 'Player 1 (Host)' : 'Player 2';
+    }
 
     updateUI();
 }
@@ -75,14 +90,36 @@ function updateUI() {
     }
 
     if (!player2) {
-        statusMessage.textContent = "Waiting for opponent...";
+        statusMessage.textContent = "Waiting for opponent to join...";
     } else if (!isReady) {
         statusMessage.textContent = "Click Ready when you're set!";
     } else if (!player2.ready) {
         statusMessage.textContent = "Waiting for opponent to ready up...";
     } else {
-        statusMessage.textContent = "Both players ready — Start the game!";
+        statusMessage.textContent = isHost
+            ? "Both ready — press Start!"
+            : "Both ready — waiting for host to start!";
     }
+}
+
+// ===============================
+// RENDER OPPONENT CARD
+// ===============================
+function renderPlayer2Card(username, character, ready) {
+    player2Card.classList.add('joined');
+    player2Card.innerHTML = `
+        <div class="player-header">
+            <h3 class="player-label">${isHost ? 'Player 2' : 'Player 1 (Host)'}</h3>
+            <span class="player-status ${ready ? 'ready' : 'not-ready'}">${ready ? 'Ready' : 'Not Ready'}</span>
+        </div>
+        <div class="player-character">
+            <div class="character-icon">${character ? (characterIcons[character] || '👤') : '👤'}</div>
+            <div class="character-info">
+                <h4 class="character-name">${character ? (CONFIG.CHARACTERS[character]?.name || character) : 'Choosing...'}</h4>
+                <p class="player-name">${username}</p>
+            </div>
+        </div>
+    `;
 }
 
 // ===============================
@@ -90,10 +127,32 @@ function updateUI() {
 // ===============================
 function setupSocketListeners() {
 
-    // ===============================
-    // PLAYER JOINED
-    // ===============================
+    // ✅ room:update fires on every join — use it to sync full state
+    wsManager.on('room:update', (data) => {
+        const updatedRoom = data.room;
+        if (!updatedRoom) return;
+
+        console.log("📦 room:update players:", JSON.stringify(updatedRoom.players));
+
+        updatedRoom.players.forEach(p => {
+            if (p.id !== user.id) {
+                player2 = {
+                    id: p.id,
+                    username: p.username,
+                    ready: p.ready || false,
+                    character: p.character || null
+                };
+                renderPlayer2Card(p.username, p.character, p.ready);
+            }
+        });
+
+        updateUI();
+    });
+
+    // Player joined notification
     wsManager.on('player:joined', (data) => {
+        console.log("👤 player:joined:", data);
+
         player2 = {
             id: data.userId,
             username: data.username,
@@ -101,88 +160,23 @@ function setupSocketListeners() {
             character: null
         };
 
-        player2Card.classList.add('joined');
-        player2Card.innerHTML = `
-            <div class="player-header">
-                <h3>Player 2</h3>
-                <span class="player-status not-ready">Not Ready</span>
-            </div>
-            <div class="player-character">
-                <div class="character-icon">👤</div>
-                <p>${data.username}</p>
-            </div>
-        `;
-
+        renderPlayer2Card(data.username, null, false);
         updateUI();
     });
 
-    // Temporary debug — remove later
-wsManager.on('room:update', (data) => {
-    console.log("📦 room:update received:", JSON.stringify(data.room?.players));
-});
-
-wsManager.on('player:joined', (data) => {
-    console.log("👤 player:joined received:", data);
-});
-    // ===============================
-    // ROOM UPDATE (full state sync)
-    // ===============================
-    wsManager.on('room:update', (data) => {
-        const updatedRoom = data.room;
-        if (!updatedRoom) return;
-
-        updatedRoom.players.forEach(p => {
-            if (p.id !== user.id) {
-                // Update player 2 state from server
-                player2 = player2 || { id: p.id, username: p.username, ready: false, character: null };
-                player2.ready = p.ready;
-                player2.character = p.character;
-
-                if (p.character) {
-                    player2Card.innerHTML = `
-                        <div class="player-header">
-                            <h3>Player 2</h3>
-                            <span class="player-status ${p.ready ? 'ready' : 'not-ready'}">${p.ready ? 'Ready' : 'Not Ready'}</span>
-                        </div>
-                        <div class="player-character">
-                            <div class="character-icon">${characterIcons[p.character] || '👤'}</div>
-                            <p>${p.username}</p>
-                        </div>
-                    `;
-                }
-            }
-        });
-
-        updateUI();
-    });
-
-    // ===============================
-    // CHARACTER SELECTED
-    // ===============================
+    // Opponent selected character
     wsManager.on('player:characterSelected', (data) => {
-        if (data.userId === user.id) return; // ignore own event
+        if (data.userId === user.id) return;
 
         if (player2 && player2.id === data.userId) {
             player2.character = data.character;
-
-            player2Card.innerHTML = `
-                <div class="player-header">
-                    <h3>Player 2</h3>
-                    <span class="player-status not-ready">Not Ready</span>
-                </div>
-                <div class="player-character">
-                    <div class="character-icon">${characterIcons[data.character] || '👤'}</div>
-                    <p>${player2.username}</p>
-                </div>
-            `;
+            renderPlayer2Card(player2.username, data.character, player2.ready);
         }
     });
 
-    // ===============================
-    // READY UPDATE
-    // ===============================
+    // Opponent ready status changed
     wsManager.on('player:ready', (data) => {
-        if (data.userId === user.id) return; // ignore own event
+        if (data.userId === user.id) return;
 
         if (player2 && player2.id === data.userId) {
             player2.ready = data.ready;
@@ -190,32 +184,28 @@ wsManager.on('player:joined', (data) => {
             const status = player2Card.querySelector('.player-status');
             if (status) {
                 status.textContent = data.ready ? "Ready" : "Not Ready";
-                status.className = data.ready
-                    ? "player-status ready"
-                    : "player-status not-ready";
+                status.className = data.ready ? "player-status ready" : "player-status not-ready";
             }
 
             updateUI();
         }
     });
 
-    // ===============================
-    // GAME START
-    // ===============================
+    // Game started
     wsManager.on('game:start', () => {
         window.location.href = 'game.html';
     });
 
-    // ===============================
-    // PLAYER LEFT
-    // ===============================
-    wsManager.on('player:left', () => {
+    // Opponent left
+    wsManager.on('player:left', (data) => {
+        console.log("❌ player:left:", data);
+
         player2 = null;
         player2Card.classList.remove('joined');
         player2Card.innerHTML = `
             <div class="player-header">
-                <h3 class="player-label">Player 2</h3>
-                <span class="player-status waiting" id="player2Status">Waiting...</span>
+                <h3 class="player-label">${isHost ? 'Player 2' : 'Player 1 (Host)'}</h3>
+                <span class="player-status waiting">Waiting...</span>
             </div>
             <div class="player-character">
                 <div class="character-icon waiting-icon">❓</div>
@@ -239,7 +229,6 @@ if (!CONFIG.USE_MOCK) {
     setupSocketListeners();
 
     if (!wsManager.socket || !wsManager.socket.connected) {
-        // Not connected yet — connect and join
         wsManager.connect();
 
         wsManager.on("connect", () => {
@@ -252,7 +241,6 @@ if (!CONFIG.USE_MOCK) {
         });
 
     } else {
-        // ✅ Already connected from character-select — just re-join
         console.log("🔌 Already connected, rejoining room...");
         wsManager.send("room:join", {
             roomId: room.id,
@@ -264,7 +252,6 @@ if (!CONFIG.USE_MOCK) {
 
 // ===============================
 // READY BUTTON
-// ✅ FIXED: CONFIG.USE_MOCK (not CONFIG.API.USE_MOCK)
 // ===============================
 readyBtn.addEventListener('click', () => {
     isReady = !isReady;
@@ -279,10 +266,10 @@ readyBtn.addEventListener('click', () => {
 });
 
 // ===============================
-// START GAME
+// START GAME (host only)
 // ===============================
 startBtn.addEventListener('click', () => {
-    if (!player2 || !isReady || !player2.ready) return;
+    if (!isHost || !player2 || !isReady || !player2.ready) return;
 
     wsManager.send("game:start", {
         roomId: room.id
