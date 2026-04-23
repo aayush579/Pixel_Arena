@@ -23,7 +23,7 @@ function authenticate(req, res, next) {
         // ===============================
         const token = authHeader.substring(7); // Remove 'Bearer '
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
 
         const user = users.find(u => u.id === decoded.id);
 
