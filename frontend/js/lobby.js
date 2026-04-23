@@ -64,10 +64,22 @@ function initializeLobby() {
     player1Character.textContent = character.name;
     player1Icon.textContent = characterIcons[selectedCharacter];
 
-    // ✅ Show correct label — you are always on the left
+    // ✅ Show correct label — you are always on the left in DOM, but we will swap visual order
     const player1Label = document.querySelector('.player-1 .player-label');
     if (player1Label) {
         player1Label.textContent = isHost ? 'Player 1 (Host)' : 'Player 2';
+    }
+
+    // ✅ visually swap panels if I am not the host, so Player 1 (Host) is always on the left
+    if (!isHost) {
+        const p1Slot = document.querySelector('.player-1');
+        const p2Slot = document.querySelector('.player-2');
+        const vsDivider = document.querySelector('.vs-divider');
+        if (p1Slot && p2Slot && vsDivider) {
+            p2Slot.style.order = 1;
+            vsDivider.style.order = 2;
+            p1Slot.style.order = 3;
+        }
     }
 
     // Try to find opponent in the stored room data
