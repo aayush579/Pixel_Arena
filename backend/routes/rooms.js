@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { rooms } = require('../models/data');
+const { rooms, gameSessions } = require('../models/data');
 const { authenticate } = require('../middleware/auth');
 
 // ===============================
@@ -160,6 +160,7 @@ router.delete('/:id/leave', authenticate, (req, res) => {
         // Handle room state
         if (room.players.length === 0) {
             room.isDeleted = true;
+            gameSessions.delete(id);
         } else if (room.hostId === req.user.id) {
             room.host = room.players[0].username;
             room.hostId = room.players[0].id;

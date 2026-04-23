@@ -141,6 +141,10 @@ function setupSocketHandlers(io) {
         socket.on('disconnect', () => {
             console.log(`❌ Disconnected: ${socket.id} (${socket.username})`);
 
+            if (socket.userId) {
+                socketConnections.delete(socket.userId);
+            }
+
             if (socket.roomId) {
                 const room = rooms.find(r => r.id === socket.roomId);
 
@@ -155,6 +159,13 @@ function setupSocketHandlers(io) {
 
                     // Send updated room state to remaining players
                     io.to(socket.roomId).emit('room:update', { room });
+
+                    // Clean up empty rooms and their game sessions
+                    if (room.players.length === 0) {
+                        room.isDeleted = true;
+                        gameSessions.delete(socket.roomId);
+                        console.log(`🗑️ Room ${room.name} marked as deleted (empty)`);
+                    }
                 }
             }
         });
