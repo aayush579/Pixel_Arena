@@ -125,6 +125,7 @@ router.post('/:id/join', authenticate, (req, res) => {
                 room: room, // ✅ FIXED
                 message: 'Already in room',
             });
+        }
         // We DO NOT push to room.players here!
         // This prevents the room from getting stuck at 2/2 if they abandon the character selection screen.
         // They will be officially added to the room when their socket connects in the lobby.
