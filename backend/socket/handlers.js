@@ -145,6 +145,43 @@ function setupSocketHandlers(io) {
         });
 
         // ===============================
+        // PLAYER ACTION (Attack/Hit)
+        // ===============================
+        socket.on('player:action', (data) => {
+            socket.to(data.roomId).emit('player:action', {
+                userId: socket.userId,
+                ...data
+            });
+        });
+
+        // ===============================
+        // PLAYER DAMAGE
+        // ===============================
+        socket.on('player:damage', (data) => {
+            // Relays damage to the opponent
+            socket.to(data.roomId).emit('player:damage', {
+                userId: socket.userId,
+                targetId: data.targetId,
+                damage: data.damage
+            });
+        });
+
+        // ===============================
+        // GAME OVER
+        // ===============================
+        socket.on('game:over', (data) => {
+            const room = rooms.find(r => r.id === data.roomId);
+            if (room) {
+                room.status = 'finished';
+                saveDatabase();
+            }
+            io.to(data.roomId).emit('game:over', {
+                winnerId: data.winnerId,
+                loserId: data.loserId
+            });
+        });
+
+        // ===============================
         // DISCONNECT
         // ===============================
         socket.on('disconnect', () => {

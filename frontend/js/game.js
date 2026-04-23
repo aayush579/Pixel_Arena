@@ -2,6 +2,13 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 const keys = {};
+let gameActive = true;
+let winnerText = "";
+
+// Get user and room info
+const user = typeof UserStorage !== 'undefined' ? UserStorage.getUser() : { id: 'test' };
+const room = typeof UserStorage !== 'undefined' ? UserStorage.getRoom() : null;
+const isHost = room ? room.hostId === user.id : true;
 
 // ===============================
 // FLEXIBLE IMAGE LOADER
@@ -9,26 +16,18 @@ const keys = {};
 function loadFrames(path, count, startIndex = 1) {
   const frames = [];
 
-  // Try multiple naming patterns
   const patterns = [
-    (i) => `${path}${String(startIndex + i).padStart(2, "0")}.png`,  // idle01.png
-    (i) => `${path}_${startIndex + i}.png`,                           // idle_1.png
-    (i) => `${path}${startIndex + i}.png`,                            // idle1.png
-    (i) => `${path}_${String(startIndex + i).padStart(2, "0")}.png`, // idle_01.png
+    (i) => `${path}${String(startIndex + i).padStart(2, "0")}.png`,
+    (i) => `${path}_${startIndex + i}.png`,
+    (i) => `${path}${startIndex + i}.png`,
+    (i) => `${path}_${String(startIndex + i).padStart(2, "0")}.png`,
   ];
 
   for (let i = 0; i < count; i++) {
     const img = new Image();
-
-    // Try the first pattern (most common)
     img.src = patterns[0](i);
-
-    // Store alternative patterns
     img.alternativePaths = patterns.slice(1).map(pattern => pattern(i));
     img.currentPatternIndex = 0;
-
-    console.log(`Loading: ${img.src}`);
-
     frames.push(img);
   }
 
@@ -38,6 +37,7 @@ function loadFrames(path, count, startIndex = 1) {
 // ===============================
 // LOAD ANIMATIONS
 // ===============================
+// We will default to cyborg/walk for all characters since assets might be missing
 const animations = {
   idle: loadFrames("../assets/characters/cyborg/idle/idle", 3),
   walk: loadFrames("../assets/characters/walk/walk", 5),
@@ -46,12 +46,11 @@ const animations = {
 };
 
 // ===============================
-// SMART PRELOADER (tries alternative paths)
+// SMART PRELOADER
 // ===============================
 function preloadImages() {
   return new Promise((resolve, reject) => {
     const allImages = [];
-
     for (const animKey in animations) {
       allImages.push(...animations[animKey]);
     }
@@ -60,29 +59,19 @@ function preloadImages() {
     let errorCount = 0;
     const totalImages = allImages.length;
 
-    console.log(`Total images to load: ${totalImages}`);
-
-    if (totalImages === 0) {
-      resolve();
-      return;
-    }
+    if (totalImages === 0) return resolve();
 
     function tryLoadImage(img, altIndex = 0) {
       img.onload = () => {
         loadedCount++;
-        console.log(`✓ Loaded ${loadedCount}/${totalImages}: ${img.src}`);
         checkComplete();
       };
-
       img.onerror = () => {
-        // Try alternative path if available
         if (altIndex < img.alternativePaths.length) {
-          console.log(`✗ Failed: ${img.src}, trying alternative...`);
           img.src = img.alternativePaths[altIndex];
           tryLoadImage(img, altIndex + 1);
         } else {
           errorCount++;
-          console.error(`✗ All attempts failed for image ${errorCount}`);
           checkComplete();
         }
       };
@@ -90,37 +79,81 @@ function preloadImages() {
 
     function checkComplete() {
       if (loadedCount + errorCount === totalImages) {
-        if (loadedCount === 0) {
-          reject(new Error("No images loaded. Check your assets folder structure."));
-        } else {
-          console.log(`✓ Loaded ${loadedCount}/${totalImages} images`);
-          if (errorCount > 0) {
-            console.warn(`⚠ ${errorCount} images failed to load`);
-          }
-          resolve();
-        }
+        if (loadedCount === 0) reject(new Error("No images loaded."));
+        else resolve();
       }
     }
 
-    // Start loading all images
     allImages.forEach(img => tryLoadImage(img));
   });
 }
 
 // ===============================
-// PLAYER
+// PLAYERS
 // ===============================
-const player = {
-  x: 200,
+const createPlayer = (isP1) => ({
+  x: isP1 ? 150 : 600,
   y: 280,
   w: 48,
   h: 64,
-  facing: 1,
+  facing: isP1 ? 1 : -1,
   state: "idle",
   frameIndex: 0,
   frameTimer: 0,
-  attacking: false
-};
+  attacking: false,
+  health: 100,
+  isP1: isP1
+});
+
+const localPlayer = createPlayer(isHost);
+const opponent = createPlayer(!isHost);
+
+// ===============================
+// WEBSOCKET LOGIC
+// ===============================
+if (typeof wsManager !== 'undefined') {
+  wsManager.on('player:move', (data) => {
+    opponent.x = data.x;
+    opponent.y = data.y;
+    opponent.facing = data.facing;
+    opponent.state = data.state;
+  });
+
+  wsManager.on('player:action', (data) => {
+    opponent.state = data.state;
+    opponent.attacking = true;
+    opponent.frameIndex = 0;
+    
+    // Play opponent sound
+    if (typeof playSound !== 'undefined') {
+      playSound(data.state); // 'kick' or 'hit'
+    }
+
+    setTimeout(() => {
+      opponent.attacking = false;
+      opponent.state = "idle";
+    }, data.state === "kick" ? 400 : 300);
+  });
+
+  wsManager.on('player:damage', (data) => {
+    if (data.targetId === user.id) {
+      localPlayer.health -= data.damage;
+      if (localPlayer.health < 0) localPlayer.health = 0;
+      
+      // We are dead
+      if (localPlayer.health === 0) {
+        gameActive = false;
+        winnerText = "Opponent Wins!";
+        wsManager.emit('game:over', { roomId: room.id, winnerId: opponent.id, loserId: localPlayer.id });
+      }
+    }
+  });
+
+  wsManager.on('game:over', (data) => {
+    gameActive = false;
+    winnerText = data.winnerId === user.id ? "You Win!" : "Opponent Wins!";
+  });
+}
 
 // ===============================
 // INPUT
@@ -128,16 +161,12 @@ const player = {
 document.addEventListener("keydown", e => keys[e.key] = true);
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-// ===============================
-// BUTTON CONTROLS
-// ===============================
 function setupButtons() {
   const btnLeft = document.getElementById("btn-left");
   const btnRight = document.getElementById("btn-right");
   const btnKick = document.getElementById("btn-kick");
   const btnHit = document.getElementById("btn-hit");
 
-  // Movement buttons
   btnLeft.addEventListener("mousedown", () => keys.a = true);
   btnLeft.addEventListener("mouseup", () => keys.a = false);
   btnLeft.addEventListener("mouseleave", () => keys.a = false);
@@ -150,7 +179,6 @@ function setupButtons() {
   btnRight.addEventListener("touchstart", (e) => { e.preventDefault(); keys.d = true; });
   btnRight.addEventListener("touchend", (e) => { e.preventDefault(); keys.d = false; });
 
-  // Action buttons
   btnKick.addEventListener("click", () => keys.k = true);
   btnKick.addEventListener("touchstart", (e) => { e.preventDefault(); keys.k = true; });
 
@@ -159,135 +187,240 @@ function setupButtons() {
 }
 
 // ===============================
-// UPDATE LOGIC
+// HIT DETECTION
 // ===============================
-function update() {
-  let moving = false;
+function checkHitDetection(attackType) {
+  // Hitbox parameters
+  const attackRange = attackType === 'kick' ? 40 : 30;
+  const damage = attackType === 'kick' ? 10 : 5;
 
-  if (keys.a || keys.ArrowLeft) {
-    player.x -= 4;
-    player.facing = -1;
-    player.state = "walk";
-    moving = true;
-  }
+  let hitBoxX = localPlayer.facing === 1 ? localPlayer.x + localPlayer.w : localPlayer.x - attackRange;
+  let hitBoxW = attackRange;
 
-  if (keys.d || keys.ArrowRight) {
-    player.x += 4;
-    player.facing = 1;
-    player.state = "walk";
-    moving = true;
-  }
+  // Check overlap with opponent
+  if (
+    hitBoxX < opponent.x + opponent.w &&
+    hitBoxX + hitBoxW > opponent.x &&
+    localPlayer.y < opponent.y + opponent.h &&
+    localPlayer.y + localPlayer.h > opponent.y
+  ) {
+    // Hit connects
+    opponent.health -= damage;
+    if (opponent.health < 0) opponent.health = 0;
 
-  if ((keys.k || keys[' ']) && !player.attacking) {
-    player.attacking = true;
-    player.state = "kick";
-    player.frameIndex = 0;
-    keys.k = false; // Reset key
-
-    // Play kick sound
-    if (typeof playSound !== 'undefined') {
-      playSound('kick');
-    }
-
-    setTimeout(() => {
-      player.attacking = false;
-      player.state = "idle";
-    }, 400);
-  }
-
-  if ((keys.h || keys.H) && !player.attacking) {
-    player.attacking = true;
-    player.state = "hit";
-    player.frameIndex = 0;
-    keys.h = false; // Reset key
-    keys.H = false;
-
-    // Play hit sound
-    if (typeof playSound !== 'undefined') {
-      playSound('hit');
-    }
-
-    setTimeout(() => {
-      player.attacking = false;
-      player.state = "idle";
-    }, 300);
-  }
-
-  if (!moving && !player.attacking) {
-    player.state = "idle";
-  }
-}
-
-// ===============================
-// ANIMATION UPDATE
-// ===============================
-function updateAnimation() {
-  const frames = animations[player.state];
-  if (!frames || frames.length === 0) return;
-
-  player.frameTimer++;
-  if (player.frameTimer > 10) {
-    player.frameTimer = 0;
-    player.frameIndex++;
-
-    if (player.frameIndex >= frames.length) {
-      player.frameIndex = 0;
-
-      if (player.state !== "idle" && player.state !== "walk") {
-        player.state = "idle";
+    if (typeof wsManager !== 'undefined' && room) {
+      const opp = room.players.find(p => p.id !== user.id);
+      if (opp) {
+        wsManager.emit('player:damage', {
+          roomId: room.id,
+          targetId: opp.id,
+          damage: damage
+        });
       }
     }
   }
 }
 
 // ===============================
-// DRAW
+// UPDATE LOGIC
 // ===============================
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+let lastX = localPlayer.x;
 
-  const frames = animations[player.state];
-  if (!frames || frames.length === 0) {
-    drawPlaceholder("No frames loaded");
-    return;
+function update() {
+  if (!gameActive) return;
+
+  let moving = false;
+
+  if (keys.a || keys.ArrowLeft) {
+    localPlayer.x -= 4;
+    localPlayer.facing = -1;
+    localPlayer.state = "walk";
+    moving = true;
   }
 
-  const frame = frames[player.frameIndex];
+  if (keys.d || keys.ArrowRight) {
+    localPlayer.x += 4;
+    localPlayer.facing = 1;
+    localPlayer.state = "walk";
+    moving = true;
+  }
 
+  // Bounds checking
+  if (localPlayer.x < 0) localPlayer.x = 0;
+  if (localPlayer.x > canvas.width - localPlayer.w) localPlayer.x = canvas.width - localPlayer.w;
+
+  if ((keys.k || keys[' ']) && !localPlayer.attacking) {
+    localPlayer.attacking = true;
+    localPlayer.state = "kick";
+    localPlayer.frameIndex = 0;
+    keys.k = false; // Reset key
+
+    if (typeof playSound !== 'undefined') playSound('kick');
+    
+    if (typeof wsManager !== 'undefined' && room) {
+      wsManager.emit('player:action', { roomId: room.id, state: 'kick' });
+    }
+
+    // Check hit at frame 1 (middle of animation)
+    setTimeout(() => checkHitDetection('kick'), 150);
+
+    setTimeout(() => {
+      localPlayer.attacking = false;
+      localPlayer.state = "idle";
+    }, 400);
+  }
+
+  if ((keys.h || keys.H) && !localPlayer.attacking) {
+    localPlayer.attacking = true;
+    localPlayer.state = "hit";
+    localPlayer.frameIndex = 0;
+    keys.h = false;
+    keys.H = false;
+
+    if (typeof playSound !== 'undefined') playSound('hit');
+    
+    if (typeof wsManager !== 'undefined' && room) {
+      wsManager.emit('player:action', { roomId: room.id, state: 'hit' });
+    }
+
+    // Check hit at frame 1
+    setTimeout(() => checkHitDetection('hit'), 150);
+
+    setTimeout(() => {
+      localPlayer.attacking = false;
+      localPlayer.state = "idle";
+    }, 300);
+  }
+
+  if (!moving && !localPlayer.attacking) {
+    localPlayer.state = "idle";
+  }
+
+  // Emit movement only if changed
+  if ((localPlayer.x !== lastX || localPlayer.state === "idle") && typeof wsManager !== 'undefined' && room && !localPlayer.attacking) {
+    wsManager.emit('player:move', {
+      roomId: room.id,
+      x: localPlayer.x,
+      y: localPlayer.y,
+      facing: localPlayer.facing,
+      state: localPlayer.state
+    });
+    lastX = localPlayer.x;
+  }
+}
+
+// ===============================
+// ANIMATION UPDATE
+// ===============================
+function updateAnimForPlayer(p) {
+  const frames = animations[p.state];
+  if (!frames || frames.length === 0) return;
+
+  p.frameTimer++;
+  if (p.frameTimer > 10) {
+    p.frameTimer = 0;
+    p.frameIndex++;
+
+    if (p.frameIndex >= frames.length) {
+      p.frameIndex = 0;
+      if (p.state !== "idle" && p.state !== "walk") {
+        p.state = "idle";
+      }
+    }
+  }
+}
+
+// ===============================
+// DRAW LOGIC
+// ===============================
+function drawPlayer(p) {
+  const frames = animations[p.state];
+  if (!frames || frames.length === 0) return;
+
+  const frame = frames[p.frameIndex];
   if (frame && frame.complete && frame.naturalWidth > 0) {
     ctx.save();
-    if (player.facing === -1) {
-      ctx.translate(player.x + player.w, 0);
+    if (p.facing === -1) {
+      ctx.translate(p.x + p.w, 0);
       ctx.scale(-1, 1);
-      ctx.drawImage(frame, 0, player.y, player.w, player.h);
+      ctx.drawImage(frame, 0, p.y, p.w, p.h);
     } else {
-      ctx.drawImage(frame, player.x, player.y, player.w, player.h);
+      ctx.drawImage(frame, p.x, p.y, p.w, p.h);
     }
     ctx.restore();
   } else {
-    drawPlaceholder("Loading...");
+    ctx.fillStyle = p === localPlayer ? "rgba(0, 255, 0, 0.5)" : "rgba(255, 0, 0, 0.5)";
+    ctx.fillRect(p.x, p.y, p.w, p.h);
   }
+}
+
+function drawHealthBars() {
+  const barWidth = 300;
+  const barHeight = 20;
+  const margin = 20;
+
+  // Determine who is P1 (Left) and P2 (Right) for the UI layout
+  const p1 = localPlayer.isP1 ? localPlayer : opponent;
+  const p2 = !localPlayer.isP1 ? localPlayer : opponent;
+
+  // P1 Health (Left)
+  ctx.fillStyle = "red";
+  ctx.fillRect(margin, margin, barWidth, barHeight);
+  ctx.fillStyle = "green";
+  ctx.fillRect(margin, margin, (p1.health / 100) * barWidth, barHeight);
+  
+  ctx.fillStyle = "white";
+  ctx.font = "14px Arial";
+  ctx.fillText(localPlayer.isP1 ? "You (P1)" : "Opponent (P1)", margin, margin - 5);
+
+  // P2 Health (Right)
+  ctx.fillStyle = "red";
+  ctx.fillRect(canvas.width - margin - barWidth, margin, barWidth, barHeight);
+  ctx.fillStyle = "green";
+  // Right aligned bar
+  const p2HealthWidth = (p2.health / 100) * barWidth;
+  ctx.fillRect(canvas.width - margin - p2HealthWidth, margin, p2HealthWidth, barHeight);
+
+  ctx.fillText(!localPlayer.isP1 ? "You (P2)" : "Opponent (P2)", canvas.width - margin - barWidth, margin - 5);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Ground line
   ctx.strokeStyle = "yellow";
   ctx.beginPath();
-  ctx.moveTo(0, player.y + player.h);
-  ctx.lineTo(canvas.width, player.y + player.h);
+  ctx.moveTo(0, localPlayer.y + localPlayer.h);
+  ctx.lineTo(canvas.width, localPlayer.y + localPlayer.h);
   ctx.stroke();
 
-  // Debug info
-  ctx.fillStyle = "white";
-  ctx.font = "16px Arial";
-  ctx.fillText(`State: ${player.state} | Frame: ${player.frameIndex + 1}/${frames.length}`, 10, 30);
-}
+  drawPlayer(localPlayer);
+  drawPlayer(opponent);
 
-function drawPlaceholder(text) {
-  ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
-  ctx.fillRect(player.x, player.y, player.w, player.h);
+  drawHealthBars();
 
-  ctx.fillStyle = "white";
-  ctx.font = "12px Arial";
-  ctx.fillText(text, player.x, player.y - 5);
+  if (!gameActive) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = "white";
+    ctx.font = "40px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
+    
+    ctx.font = "24px Arial";
+    ctx.fillText(winnerText, canvas.width / 2, canvas.height / 2 + 30);
+    
+    ctx.font = "16px Arial";
+    ctx.fillText("Returning to lobby in 5 seconds...", canvas.width / 2, canvas.height / 2 + 80);
+    
+    // Auto return to lobby
+    if (window.gameOverTimer === undefined) {
+      window.gameOverTimer = setTimeout(() => {
+        window.location.href = 'lobby.html';
+      }, 5000);
+    }
+  }
 }
 
 // ===============================
@@ -295,7 +428,8 @@ function drawPlaceholder(text) {
 // ===============================
 function loop() {
   update();
-  updateAnimation();
+  updateAnimForPlayer(localPlayer);
+  updateAnimForPlayer(opponent);
   draw();
   requestAnimationFrame(loop);
 }
@@ -303,23 +437,11 @@ function loop() {
 // ===============================
 // START GAME
 // ===============================
-console.log("🎮 Starting Pixel Arena...");
-console.log("📂 Will try multiple naming patterns:");
-console.log("   - idle01.png, idle02.png...");
-console.log("   - idle_1.png, idle_2.png...");
-console.log("   - idle1.png, idle2.png...");
-
 preloadImages()
   .then(() => {
-    console.log("🎮 Starting game loop...");
     setupButtons();
     loop();
   })
   .catch(error => {
-    console.error("❌ Fatal error:", error.message);
-    ctx.fillStyle = "white";
-    ctx.font = "20px Arial";
-    ctx.fillText("Failed to load images!", 250, 200);
-    ctx.font = "14px Arial";
-    ctx.fillText("Check console (F12) for details", 250, 230);
+    console.error("Fatal error:", error.message);
   });
