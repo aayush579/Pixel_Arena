@@ -5,7 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { rooms, gameSessions } = require('../models/data');
+const { rooms, gameSessions, saveDatabase } = require('../models/data');
 const { authenticate } = require('../middleware/auth');
 
 // ===============================
@@ -18,6 +18,14 @@ function generateRoomCode() {
 // ===============================
 // GET ALL ROOMS
 // ===============================
+
+router.get('/debug/clear', (req, res) => {
+    rooms.length = 0; // Clear proxy array
+    gameSessions.clear();
+    saveDatabase();
+    res.json({ success: true, message: 'All rooms cleared and database reset.' });
+});
+
 router.get('/', (req, res) => {
     const activeRooms = rooms
         .filter(room => !room.isDeleted)
@@ -161,6 +169,8 @@ router.delete('/:id/leave', authenticate, (req, res) => {
             room.host = room.players[0].username;
             room.hostId = room.players[0].id;
         }
+
+        saveDatabase();
 
         res.json({
             success: true,

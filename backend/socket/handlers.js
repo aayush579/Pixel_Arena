@@ -2,7 +2,7 @@
 // SOCKET.IO EVENT HANDLERS (FINAL FIXED)
 // ===============================
 
-const { rooms, socketConnections, gameSessions } = require('../models/data');
+const { rooms, socketConnections, gameSessions, saveDatabase } = require('../models/data');
 
 function setupSocketHandlers(io) {
     io.on('connection', (socket) => {
@@ -48,6 +48,7 @@ function setupSocketHandlers(io) {
                     character: null,
                     ready: false
                 });
+                saveDatabase();
             }
 
             socket.join(roomId);
@@ -82,6 +83,7 @@ function setupSocketHandlers(io) {
 
             if (player) {
                 player.character = character;
+                saveDatabase();
                 console.log(`🎭 ${socket.username} selected ${character}`);
 
                 // Broadcast to all players in room
@@ -105,6 +107,7 @@ function setupSocketHandlers(io) {
             const player = room.players.find(p => p.id === socket.userId);
             if (player) {
                 player.ready = ready;
+                saveDatabase();
                 console.log(`✅ ${socket.username} is ${ready ? 'ready' : 'not ready'}`);
 
                 io.to(roomId).emit('player:ready', {
@@ -126,6 +129,7 @@ function setupSocketHandlers(io) {
 
             console.log(`🎮 Game starting in room: ${room.name}`);
             room.status = 'playing';
+            saveDatabase();
 
             io.to(roomId).emit('game:start', { roomId });
         });
@@ -155,6 +159,7 @@ function setupSocketHandlers(io) {
 
                 if (room) {
                     room.players = room.players.filter(p => p.id !== socket.userId);
+                    saveDatabase();
                     console.log(`👥 Players remaining:`, room.players.map(p => p.username));
 
                     socket.to(socket.roomId).emit('player:left', {
@@ -168,6 +173,7 @@ function setupSocketHandlers(io) {
                     // Clean up empty rooms and their game sessions
                     if (room.players.length === 0) {
                         room.isDeleted = true;
+                        saveDatabase();
                         gameSessions.delete(socket.roomId);
                         console.log(`🗑️ Room ${room.name} marked as deleted (empty)`);
                     }
