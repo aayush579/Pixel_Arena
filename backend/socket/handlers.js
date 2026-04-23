@@ -195,24 +195,30 @@ function setupSocketHandlers(io) {
                 const room = rooms.find(r => r.id === socket.roomId);
 
                 if (room) {
-                    room.players = room.players.filter(p => p.id !== socket.userId);
-                    saveDatabase();
-                    console.log(`👥 Players remaining:`, room.players.map(p => p.username));
-
-                    socket.to(socket.roomId).emit('player:left', {
-                        userId: socket.userId,
-                        username: socket.username
-                    });
-
-                    // Send updated room state to remaining players
-                    io.to(socket.roomId).emit('room:update', { room });
-
-                    // Clean up empty rooms and their game sessions
-                    if (room.players.length === 0) {
-                        room.isDeleted = true;
+                    // Do not remove players or delete room if the game is actively playing 
+                    // (prevents room destruction during lobby.html -> game.html transition)
+                    if (room.status !== 'playing') {
+                        room.players = room.players.filter(p => p.id !== socket.userId);
                         saveDatabase();
-                        gameSessions.delete(socket.roomId);
-                        console.log(`🗑️ Room ${room.name} marked as deleted (empty)`);
+                        console.log(`👥 Players remaining:`, room.players.map(p => p.username));
+
+                        socket.to(socket.roomId).emit('player:left', {
+                            userId: socket.userId,
+                            username: socket.username
+                        });
+
+                        // Send updated room state to remaining players
+                        io.to(socket.roomId).emit('room:update', { room });
+
+                        // Clean up empty rooms and their game sessions
+                        if (room.players.length === 0) {
+                            room.isDeleted = true;
+                            saveDatabase();
+                            gameSessions.delete(socket.roomId);
+                            console.log(`🗑️ Room ${room.name} marked as deleted (empty)`);
+                        }
+                    } else {
+                        console.log(`⏳ Player ${socket.username} disconnected but room is playing. Waiting for reconnect...`);
                     }
                 }
             }

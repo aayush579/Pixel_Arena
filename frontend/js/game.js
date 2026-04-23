@@ -235,6 +235,7 @@ function checkHitDetection(attackType) {
 // UPDATE LOGIC
 // ===============================
 let lastX = localPlayer.x;
+let lastState = localPlayer.state;
 
 function update() {
   if (!gameActive) return;
@@ -307,7 +308,7 @@ function update() {
   }
 
   // Emit movement only if changed
-  if ((localPlayer.x !== lastX || localPlayer.state === "idle") && typeof wsManager !== 'undefined' && room && !localPlayer.attacking) {
+  if ((localPlayer.x !== lastX || localPlayer.state !== lastState) && typeof wsManager !== 'undefined' && room && !localPlayer.attacking) {
     wsManager.send('player:move', {
       roomId: room.id,
       x: localPlayer.x,
@@ -316,6 +317,7 @@ function update() {
       state: localPlayer.state
     });
     lastX = localPlayer.x;
+    lastState = localPlayer.state;
   }
 }
 
