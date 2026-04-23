@@ -117,18 +117,14 @@ router.post('/:id/join', authenticate, (req, res) => {
                 room: room, // ✅ FIXED
                 message: 'Already in room',
             });
-        }
-
-        room.players.push({
-            id: req.user.id,
-            username: req.user.username,
-            character: null,
-            ready: false,
-        });
+        // We DO NOT push to room.players here!
+        // This prevents the room from getting stuck at 2/2 if they abandon the character selection screen.
+        // They will be officially added to the room when their socket connects in the lobby.
 
         res.json({
             success: true,
-            room: room, // ✅ FIXED
+            room: room,
+            message: 'Slot reserved, proceed to character selection'
         });
     } catch (error) {
         console.error('Join room error:', error);
