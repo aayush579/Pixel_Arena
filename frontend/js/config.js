@@ -5,11 +5,11 @@ window.CONFIG = {
   // ===============================
   // API CONFIG
   // ===============================
-  API_BASE_URL: window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      ? "http://localhost:3000/api"
+  API_BASE_URL: (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname.startsWith("192.168.") || window.location.hostname.startsWith("10."))
+      ? `http://${window.location.hostname}:3000/api`
       : "https://pixel-arena-x64j.onrender.com/api",
-  SOCKET_URL: window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      ? "http://localhost:3000"
+  SOCKET_URL: (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname.startsWith("192.168.") || window.location.hostname.startsWith("10."))
+      ? `http://${window.location.hostname}:3000`
       : "https://pixel-arena-x64j.onrender.com",
 
   // ✅ FIXED: USE_MOCK lives here at top level
@@ -19,11 +19,11 @@ window.CONFIG = {
   //    (prevents crashes if any file uses either path)
   API: {
     USE_MOCK: false,
-    BASE_URL: window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      ? "http://localhost:3000/api"
+    BASE_URL: (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname.startsWith("192.168.") || window.location.hostname.startsWith("10."))
+      ? `http://${window.location.hostname}:3000/api`
       : "https://pixel-arena-x64j.onrender.com/api",
-    SOCKET_URL: window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      ? "http://localhost:3000"
+    SOCKET_URL: (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname.startsWith("192.168.") || window.location.hostname.startsWith("10."))
+      ? `http://${window.location.hostname}:3000`
       : "https://pixel-arena-x64j.onrender.com"
   },
 
