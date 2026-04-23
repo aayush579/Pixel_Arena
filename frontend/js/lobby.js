@@ -254,27 +254,49 @@ function setupSocketListeners() {
 // ===============================
 if (!CONFIG.USE_MOCK) {
 
-    setupSocketListeners();
-
     if (!wsManager.socket || !wsManager.socket.connected) {
         wsManager.connect();
 
+        // Must attach listeners AFTER connect sets this.socket
+        setupSocketListeners();
+
         wsManager.on("connect", () => {
             console.log("🔌 Connected to lobby");
+            
+            // Join room
             wsManager.send("room:join", {
                 roomId: room.id,
                 userId: user.id,
                 username: user.username
             });
+
+            // Resend character selection in case it was lost during navigation
+            if (selectedCharacter) {
+                setTimeout(() => {
+                    wsManager.send("player:selectCharacter", {
+                        roomId: room.id,
+                        character: selectedCharacter
+                    });
+                }, 300);
+            }
         });
 
     } else {
+        setupSocketListeners();
+        
         console.log("🔌 Already connected, rejoining room...");
         wsManager.send("room:join", {
             roomId: room.id,
             userId: user.id,
             username: user.username
         });
+        
+        if (selectedCharacter) {
+            wsManager.send("player:selectCharacter", {
+                roomId: room.id,
+                character: selectedCharacter
+            });
+        }
     }
 }
 
