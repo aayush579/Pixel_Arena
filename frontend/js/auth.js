@@ -131,28 +131,36 @@ loginForm.addEventListener('submit', async (e) => {
 });
 
 // Guest mode
-guestBtn.addEventListener('click', () => {
-    // Create guest user
-    const guestUser = {
-        id: 'guest_' + Date.now(),
-        username: 'Guest' + Math.floor(Math.random() * 1000),
-        email: 'guest@pixelarena.com',
-        isGuest: true,
-    };
+guestBtn.addEventListener('click', async () => {
+    showLoading();
 
-    UserStorage.setUser(guestUser);
-    UserStorage.setToken('guest_token_' + Date.now());
+    try {
+        const response = await API.auth.guest();
 
-    // Play click sound
-    if (typeof playSound !== 'undefined') {
-        playSound('click');
+        if (response.success) {
+            // Store real guest user and real JWT token from server
+            UserStorage.setUser(response.data.user);
+            UserStorage.setToken(response.data.token);
+
+            // Play click sound
+            if (typeof playSound !== 'undefined') {
+                playSound('click');
+            }
+
+            showToast('Entering as guest...', 'success');
+
+            setTimeout(() => {
+                window.location.href = 'pages/home.html';
+            }, 500);
+        } else {
+            hideLoading();
+            showToast(response.error || 'Failed to enter as guest', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('An error occurred. Please try again.', 'error');
+        console.error('Guest login error:', error);
     }
-
-    showToast('Entering as guest...', 'success');
-
-    setTimeout(() => {
-        window.location.href = 'pages/home.html';
-    }, 500);
 });
 
 // Add enter key support

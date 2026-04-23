@@ -11,17 +11,11 @@ function authenticate(req, res, next) {
         const authHeader = req.headers.authorization;
 
         // ===============================
-        // ✅ CASE 1: NO TOKEN → GUEST USER
+        // ✅ CASE 1: NO TOKEN
         // ===============================
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            req.user = {
-                id: "guest_" + Date.now(),
-                username: "Guest_" + Math.floor(Math.random() * 1000),
-                isGuest: true
-            };
-
-            console.log("👤 Guest user connected:", req.user.username);
-            return next();
+            console.log("⚠️ No token provided");
+            return res.status(401).json({ success: false, error: 'Authentication required' });
         }
 
         // ===============================
@@ -34,17 +28,11 @@ function authenticate(req, res, next) {
         const user = users.find(u => u.id === decoded.id);
 
         // ===============================
-        // ❌ INVALID USER → FALLBACK TO GUEST
+        // ❌ INVALID USER
         // ===============================
         if (!user) {
-            req.user = {
-                id: "guest_" + Date.now(),
-                username: "Guest_" + Math.floor(Math.random() * 1000),
-                isGuest: true
-            };
-
-            console.log("⚠️ Invalid token → fallback to guest");
-            return next();
+            console.log("⚠️ Invalid token user not found");
+            return res.status(401).json({ success: false, error: 'Invalid token' });
         }
 
         // ===============================
@@ -52,7 +40,7 @@ function authenticate(req, res, next) {
         // ===============================
         req.user = {
             ...user,
-            isGuest: false
+            isGuest: user.isGuest || false
         };
 
         console.log("✅ Authenticated user:", user.username);
@@ -60,17 +48,10 @@ function authenticate(req, res, next) {
 
     } catch (error) {
         // ===============================
-        // ❌ TOKEN ERROR → FALLBACK TO GUEST
+        // ❌ TOKEN ERROR
         // ===============================
-        console.log("⚠️ Token error → fallback to guest");
-
-        req.user = {
-            id: "guest_" + Date.now(),
-            username: "Guest_" + Math.floor(Math.random() * 1000),
-            isGuest: true
-        };
-
-        next();
+        console.log("⚠️ Token verification error");
+        return res.status(401).json({ success: false, error: 'Invalid or expired token' });
     }
 }
 

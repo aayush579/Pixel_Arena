@@ -154,4 +154,44 @@ router.post('/logout', authenticate, (req, res) => {
     });
 });
 
+// ===============================
+// GUEST LOGIN
+// ===============================
+router.post('/guest', (req, res) => {
+    try {
+        const guestId = 'guest_' + Date.now();
+        const guestUsername = 'Guest' + Math.floor(Math.random() * 1000);
+
+        const guestUser = {
+            id: guestId,
+            username: guestUsername,
+            email: `${guestUsername.toLowerCase()}@pixelarena.com`,
+            isGuest: true,
+            createdAt: new Date().toISOString(),
+        };
+
+        // Add to users database
+        users.push(guestUser);
+
+        // Generate valid JWT
+        const token = jwt.sign(
+            { id: guestUser.id, username: guestUser.username },
+            process.env.JWT_SECRET || 'fallback_secret',
+            { expiresIn: '24h' }
+        );
+
+        res.status(200).json({
+            success: true,
+            user: guestUser,
+            token,
+        });
+    } catch (error) {
+        console.error('Guest login error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to create guest session',
+        });
+    }
+});
+
 module.exports = router;

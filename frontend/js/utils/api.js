@@ -84,6 +84,23 @@ const API = {
     },
 
     // ===============================
+    // AUTH APIs
+    // ===============================
+    auth: {
+        async guest() {
+            return API.call('/auth/guest', {
+                method: 'POST'
+            });
+        },
+        async login(username, password) {
+            return API.call('/auth/login', {
+                method: 'POST',
+                body: { username, password }
+            });
+        }
+    },
+
+    // ===============================
     // ROOM APIs
     // ===============================
     rooms: {
