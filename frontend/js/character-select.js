@@ -126,35 +126,6 @@ confirmBtn.addEventListener('click', () => {
     UserStorage.setCharacter(selectedCharacter);
 
     // ===============================
-    // CONNECT SOCKET
-    // ===============================
-    if (!wsManager.socket || !wsManager.socket.connected) {
-        console.log("🔌 Connecting socket...");
-        wsManager.connect();
-    }
-
-    // ===============================
-    // JOIN ROOM FIRST
-    // ===============================
-    wsManager.send("room:join", {
-        roomId: room.id,
-        userId: user.id,
-        username: user.username
-    });
-
-    // ===============================
-    // SEND CHARACTER AFTER JOIN
-    // ===============================
-    setTimeout(() => {
-        wsManager.send("player:selectCharacter", {
-            roomId: room.id,
-            character: selectedCharacter
-        });
-
-        console.log("🎭 Character sent:", selectedCharacter);
-    }, 300);
-
-    // ===============================
     // UI FEEDBACK
     // ===============================
     const toast = document.createElement('div');
