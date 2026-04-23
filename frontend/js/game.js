@@ -106,7 +106,15 @@ const createPlayer = (isP1) => ({
 });
 
 const localPlayer = createPlayer(isHost);
+localPlayer.id = user.id;
+
+let opponentId = 'unknown';
+if (room && room.players) {
+  const opp = room.players.find(p => p.id !== user.id);
+  if (opp) opponentId = opp.id;
+}
 const opponent = createPlayer(!isHost);
+opponent.id = opponentId;
 
 // ===============================
 // WEBSOCKET LOGIC

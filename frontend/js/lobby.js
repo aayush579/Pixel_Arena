@@ -186,6 +186,9 @@ function setupSocketListeners() {
         const updatedRoom = data.room;
         if (!updatedRoom) return;
 
+        // Save to UserStorage so game.html knows all players
+        UserStorage.saveRoom(updatedRoom);
+
         console.log("📦 room:update players:", JSON.stringify(updatedRoom.players));
 
         updatedRoom.players.forEach(p => {
