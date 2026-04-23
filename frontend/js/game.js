@@ -144,7 +144,7 @@ if (typeof wsManager !== 'undefined') {
       if (localPlayer.health === 0) {
         gameActive = false;
         winnerText = "Opponent Wins!";
-        wsManager.emit('game:over', { roomId: room.id, winnerId: opponent.id, loserId: localPlayer.id });
+        wsManager.send('game:over', { roomId: room.id, winnerId: opponent.id, loserId: localPlayer.id });
       }
     }
   });
@@ -211,7 +211,7 @@ function checkHitDetection(attackType) {
     if (typeof wsManager !== 'undefined' && room) {
       const opp = room.players.find(p => p.id !== user.id);
       if (opp) {
-        wsManager.emit('player:damage', {
+        wsManager.send('player:damage', {
           roomId: room.id,
           targetId: opp.id,
           damage: damage
@@ -258,7 +258,7 @@ function update() {
     if (typeof playSound !== 'undefined') playSound('kick');
     
     if (typeof wsManager !== 'undefined' && room) {
-      wsManager.emit('player:action', { roomId: room.id, state: 'kick' });
+      wsManager.send('player:action', { roomId: room.id, state: 'kick' });
     }
 
     // Check hit at frame 1 (middle of animation)
@@ -280,7 +280,7 @@ function update() {
     if (typeof playSound !== 'undefined') playSound('hit');
     
     if (typeof wsManager !== 'undefined' && room) {
-      wsManager.emit('player:action', { roomId: room.id, state: 'hit' });
+      wsManager.send('player:action', { roomId: room.id, state: 'hit' });
     }
 
     // Check hit at frame 1
@@ -298,7 +298,7 @@ function update() {
 
   // Emit movement only if changed
   if ((localPlayer.x !== lastX || localPlayer.state === "idle") && typeof wsManager !== 'undefined' && room && !localPlayer.attacking) {
-    wsManager.emit('player:move', {
+    wsManager.send('player:move', {
       roomId: room.id,
       x: localPlayer.x,
       y: localPlayer.y,
