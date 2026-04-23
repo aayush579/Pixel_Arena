@@ -53,7 +53,7 @@ const API = {
 
     // ===============================
     // HELPER: Extract room from any response shape
-    // Backend can return: { data: room } or { data: { data: room } }
+    // Backend can return: { data: room } or { data: { data: room } } or { data: { room: room } }
     // ===============================
     extractRoom(res) {
         if (!res.success) return null;
@@ -62,6 +62,8 @@ const API = {
         if (d && d.id) return d;
         // Shape 2: { success, data: { data: { id, name, ... } } }
         if (d && d.data && d.data.id) return d.data;
+        // Shape 3: { success, data: { room: { id, name, ... } } }
+        if (d && d.room && d.room.id) return d.room;
         return null;
     },
 
