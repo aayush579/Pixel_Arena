@@ -70,6 +70,24 @@ function initializeLobby() {
         player1Label.textContent = isHost ? 'Player 1 (Host)' : 'Player 2';
     }
 
+    // Try to find opponent in the stored room data
+    if (room && Array.isArray(room.players)) {
+        const otherPlayer = room.players.find(p => p.id !== user.id);
+        if (otherPlayer) {
+            opponent = {
+                id: otherPlayer.id,
+                username: otherPlayer.username,
+                ready: otherPlayer.ready || false,
+                character: otherPlayer.character || null
+            };
+            renderOpponentCard(opponent.username, opponent.character, opponent.ready);
+        } else {
+            resetOpponentCard();
+        }
+    } else {
+        resetOpponentCard();
+    }
+
     updateUI();
 }
 
