@@ -13,7 +13,8 @@ class WebSocketManager {
     // CONNECT
     // ===============================
     connect() {
-        this.socket = io("https://pixel-arena-x64j.onrender.com", {
+        const socketUrl = CONFIG.API?.SOCKET_URL || CONFIG.SOCKET_URL;
+        this.socket = io(socketUrl, {
             transports: ["websocket"]
         });
 
