@@ -112,6 +112,16 @@ const opponent = createPlayer(!isHost);
 // WEBSOCKET LOGIC
 // ===============================
 if (typeof wsManager !== 'undefined') {
+  // Connect to the socket server
+  wsManager.connect();
+  
+  // Join the game room
+  setTimeout(() => {
+    if (room && room.id) {
+      wsManager.joinRoom(room.id);
+    }
+  }, 500);
+
   wsManager.on('player:move', (data) => {
     opponent.x = data.x;
     opponent.y = data.y;
