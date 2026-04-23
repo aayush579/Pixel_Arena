@@ -37,6 +37,11 @@ function setupSocketHandlers(io) {
             // Add player if not already in room
             const exists = room.players.find(p => p.id === userId);
             if (!exists) {
+                if (room.players.length >= room.maxPlayers) {
+                    socket.emit('error', { message: 'Room is already full' });
+                    return;
+                }
+                
                 room.players.push({
                     id: userId,
                     username,
